@@ -1,0 +1,107 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  FetchOutboundsParams,
+  OutboundListItem,
+  OutboundListResponse,
+  fetchOutbounds,
+} from '../../services/outboundService';
+
+interface UseOutboundsFilters {
+  search: string;
+}
+
+interface UseOutboundsState {
+  items: OutboundListItem[];
+  pagination: OutboundListResponse['page'];
+  loading: boolean;
+  error: string | null;
+  filters: UseOutboundsFilters;
+  setSearch: (value: string) => void;
+  setPage: (page: number) => void;
+  summary: {
+    totalQuantity: number;
+    uniqueProducts: number;
+  };
+}
+
+const DEFAULT_PAGE = { page: 1, size: 20, total: 0 };
+
+export function useOutbounds(initialFilters: UseOutboundsFilters = { search: '' }): UseOutboundsState {
+  const [rawItems, setRawItems] = useState<OutboundListItem[]>([]);
+  const [items, setItems] = useState<OutboundListItem[]>([]);
+  const [pagination, setPagination] = useState<OutboundListResponse['page']>(DEFAULT_PAGE);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<UseOutboundsFilters>(initialFilters);
+  const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
+
+  const loadOutbounds = useCallback(
+    async (params: FetchOutboundsParams) => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetchOutbounds(params);
+        setRawItems(response.data);
+        setPagination(response.page);
+      } catch (err) {
+        console.error(err);
+        setRawItems([]);
+        setPagination(DEFAULT_PAGE);
+        setError('출고 내역을 불러오지 못했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void loadOutbounds({ page, size: DEFAULT_PAGE.size });
+  }, [loadOutbounds, page]);
+
+  useEffect(() => {
+    const filtered = rawItems.filter((item) => {
+      if (!filters.search.trim()) {
+        return true;
+      }
+
+      const keyword = filters.search.trim().toLowerCase();
+      return (
+        item.productName.toLowerCase().includes(keyword) || item.productCode.toLowerCase().includes(keyword)
+      );
+    });
+
+    setItems(filtered);
+  }, [filters.search, rawItems]);
+
+  const setSearch = useCallback((value: string) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+  }, []);
+
+  const setPage = useCallback((nextPage: number) => {
+    setPageState(nextPage);
+  }, []);
+
+  const summary = useMemo(() => {
+    const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
+    const uniqueProductIds = new Set(items.map((item) => item.productId));
+
+    return {
+      totalQuantity,
+      uniqueProducts: uniqueProductIds.size,
+    };
+  }, [items]);
+
+  return {
+    items,
+    pagination,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setPage,
+    summary,
+  };
+}
+

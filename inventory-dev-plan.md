@@ -468,13 +468,13 @@ paths:
 
 ### 스프린트 1 — 백엔드 핵심 도메인 (CRUD + 상태계산 + JWT)
 
-- [ ] Prisma 스키마/마이그레이션, 시드 데이터
-- [ ] Auth(Login)/Users/Permissions API
-- [ ] Products/Inbounds/Outbounds/Returns CRUD + remain/status 계산
-- [ ] Dashboard Summary API
-- [ ] 텔레그램 설정 API(저장/조회), 테스트 발송 API
-- [ ] 알림 서비스(쿨다운/심야 억제/재시도) 스켈레톤
-- [ ] 유닛 테스트(도메인 로직), e2e 로그인/제품
+- [x] Prisma 스키마/마이그레이션, 시드 데이터
+- [x] Auth(Login)/Users/Permissions API
+- [x] Products/Inbounds/Outbounds/Returns CRUD + remain/status 계산
+- [x] Dashboard Summary API
+- [x] 텔레그램 설정 API(저장/조회), 테스트 발송 API
+- [x] 알림 서비스(쿨다운/심야 억제/재시도) 스켈레톤
+- [x] 유닛 테스트(도메인 로직), e2e 로그인/제품
 
 ### 스프린트 2 — 프런트엔드 & 알림/업로드 (운영 가능 목표)
 

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "lint": "echo \"No lint commands for config package\""
+    "lint": "echo \"No lint commands for config package\"",
+    "test": "echo \"No tests for config package\""
   }
 }

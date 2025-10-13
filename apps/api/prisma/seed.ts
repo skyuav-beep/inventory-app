@@ -48,12 +48,15 @@ async function main() {
 
   await prisma.notificationSetting.upsert({
     where: { id: 'default-notification-setting' },
-    update: {},
+    update: {
+      telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? null,
+    },
     create: {
       id: 'default-notification-setting',
       telegramEnabled: true,
       telegramCooldownMin: 60,
       telegramQuietHours: '22-07',
+      telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? null,
       createdBy: { connect: { id: admin.id } },
       telegramTargets: {
         create: [

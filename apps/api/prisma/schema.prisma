@@ -183,6 +183,7 @@ model NotificationSetting {
   telegramEnabled      Boolean  @default(true)
   telegramCooldownMin  Int      @default(60)
   telegramQuietHours   String   @default("22-07")
+  telegramBotToken     String?
 
   // Creator (audit)
   createdBy            User?    @relation("SettingsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
@@ -220,6 +221,9 @@ model UploadJob {
   createdById String?
   createdAt   DateTime     @default(now())
   finishedAt  DateTime?
+  filename    String
+  originalName String
+  lastError   String?
 
   items       UploadJobItem[]
 

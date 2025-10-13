@@ -122,6 +122,7 @@ CREATE TABLE "notification_settings" (
     "telegramEnabled" BOOLEAN NOT NULL DEFAULT true,
     "telegramCooldownMin" INTEGER NOT NULL DEFAULT 60,
     "telegramQuietHours" TEXT NOT NULL DEFAULT '22-07',
+    "telegramBotToken" TEXT,
     "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -149,6 +150,9 @@ CREATE TABLE "upload_jobs" (
     "createdById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "finishedAt" TIMESTAMP(3),
+    "filename" TEXT NOT NULL,
+    "originalName" TEXT NOT NULL,
+    "lastError" TEXT,
 
     CONSTRAINT "upload_jobs_pkey" PRIMARY KEY ("id")
 );

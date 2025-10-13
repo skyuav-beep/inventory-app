@@ -1,0 +1,1056 @@
+openapi: 3.1.0
+info:
+  title: Inventory App API
+  version: 1.0.0
+  summary: Internal inventory management service
+  description: >
+    Inventory management API covering authentication, products, stock flows, alerts,
+    and configuration. All endpoints (except login) require a bearer token issued to
+    internal users.
+servers:
+  - url: /api/v1
+    description: Primary API entrypoint
+tags:
+  - name: Auth
+  - name: Users
+  - name: Permissions
+  - name: Products
+  - name: StockFlows
+    description: Inbounds, outbounds, and returns
+  - name: Dashboard
+  - name: Settings
+  - name: Alerts
+  - name: Uploads
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 로그인
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accessToken]
+                properties:
+                  accessToken:
+                    type: string
+        '401':
+          description: 인증 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: 현재 사용자 정보
+      operationId: getActiveUser
+      responses:
+        '200':
+          description: 활성 사용자 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users:
+    get:
+      tags: [Users]
+      summary: 사용자 목록
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 사용자 목록 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Users]
+      summary: 사용자 생성
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, role]
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                role:
+                  $ref: '#/components/schemas/Role'
+                permissions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Permission'
+      responses:
+        '201':
+          description: 사용자 생성 완료
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /permissions/resources:
+    get:
+      tags: [Permissions]
+      summary: 권한 리소스 목록
+      operationId: listPermissionResources
+      responses:
+        '200':
+          description: 리소스 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: string
+                      enum:
+                        [
+                          dashboard,
+                          products,
+                          inbounds,
+                          outbounds,
+                          returns,
+                          settings,
+                        ]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /permissions/templates:
+    get:
+      tags: [Permissions]
+      summary: 기본 권한 템플릿 목록
+      operationId: listPermissionTemplates
+      responses:
+        '200':
+          description: 역할별 기본 권한 템플릿
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Permission'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /permissions/templates/{role}:
+    parameters:
+      - name: role
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Role'
+    get:
+      tags: [Permissions]
+      summary: 역할 기본 권한 조회
+      operationId: getPermissionTemplate
+      responses:
+        '200':
+          description: 지정된 역할의 기본 권한
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Permission'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /products:
+    get:
+      tags: [Products]
+      summary: 제품 목록
+      operationId: listProducts
+      parameters:
+        - name: q
+          in: query
+          description: 코드 또는 이름 검색어
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 제품 목록 응답
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Products]
+      summary: 제품 생성
+      operationId: createProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                safetyStock:
+                  type: integer
+                  minimum: 0
+                  default: 0
+      responses:
+        '201':
+          description: 제품 생성 완료
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /products/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: 제품 ID
+        schema:
+          type: string
+    get:
+      tags: [Products]
+      summary: 제품 상세 조회
+      operationId: getProduct
+      responses:
+        '200':
+          description: 제품 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [Products]
+      summary: 제품 수정
+      operationId: updateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+                safetyStock:
+                  type: integer
+                  minimum: 0
+      responses:
+        '200':
+          description: 제품 수정 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Products]
+      summary: 제품 삭제
+      operationId: deleteProduct
+      responses:
+        '204':
+          description: 제품 삭제 완료
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /inbounds:
+    get:
+      tags: [StockFlows]
+      summary: 입고 목록
+      operationId: listInbounds
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: productId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 입고 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Inbound'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [StockFlows]
+      summary: 입고 등록
+      operationId: createInbound
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Inbound'
+      responses:
+        '201':
+          description: 입고 등록 완료
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /inbounds/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [StockFlows]
+      summary: 입고 상세 조회
+      operationId: getInbound
+      responses:
+        '200':
+          description: 입고 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbound'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [StockFlows]
+      summary: 입고 수정
+      operationId: updateInbound
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+                  minimum: 1
+                dateIn:
+                  type: string
+                  format: date
+                note:
+                  type: string
+      responses:
+        '200':
+          description: 입고 수정 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inbound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [StockFlows]
+      summary: 입고 삭제
+      operationId: deleteInbound
+      responses:
+        '200':
+          description: 입고 삭제 완료
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /outbounds:
+    get:
+      tags: [StockFlows]
+      summary: 출고 목록
+      operationId: listOutbounds
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: productId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 출고 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Outbound'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [StockFlows]
+      summary: 출고 등록
+      operationId: createOutbound
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Outbound'
+      responses:
+        '201':
+          description: 출고 등록 완료
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /outbounds/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [StockFlows]
+      summary: 출고 상세 조회
+      operationId: getOutbound
+      responses:
+        '200':
+          description: 출고 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Outbound'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [StockFlows]
+      summary: 출고 수정
+      operationId: updateOutbound
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+                  minimum: 1
+                dateOut:
+                  type: string
+                  format: date
+                note:
+                  type: string
+      responses:
+        '200':
+          description: 출고 수정 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Outbound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [StockFlows]
+      summary: 출고 삭제
+      operationId: deleteOutbound
+      responses:
+        '200':
+          description: 출고 삭제 완료
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /returns:
+    get:
+      tags: [StockFlows]
+      summary: 반품 목록
+      operationId: listReturns
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+        - name: productId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed]
+      responses:
+        '200':
+          description: 반품 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, page]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Return'
+                  page:
+                    $ref: '#/components/schemas/Page'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [StockFlows]
+      summary: 반품 등록
+      operationId: createReturn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Return'
+      responses:
+        '201':
+          description: 반품 등록 완료
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /returns/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [StockFlows]
+      summary: 반품 상세 조회
+      operationId: getReturn
+      responses:
+        '200':
+          description: 반품 상세
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Return'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [StockFlows]
+      summary: 반품 정보 수정
+      operationId: updateReturn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                dateReturn:
+                  type: string
+                  format: date
+                status:
+                  type: string
+                  enum: [pending, completed]
+      responses:
+        '200':
+          description: 반품 수정 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Return'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [StockFlows]
+      summary: 반품 삭제
+      operationId: deleteReturn
+      responses:
+        '200':
+          description: 반품 삭제 완료
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /returns/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [StockFlows]
+      summary: 반품 상태 변경
+      operationId: updateReturnStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, completed]
+      responses:
+        '200':
+          description: 반품 상태 업데이트 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Return'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: 대시보드 요약
+      operationId: getDashboardSummary
+      responses:
+        '200':
+          description: 대시보드 요약 데이터
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /settings/notifications/telegram:
+    get:
+      tags: [Settings]
+      summary: 텔레그램 설정 조회
+      operationId: getTelegramSettings
+      responses:
+        '200':
+          description: 텔레그램 설정
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramSettings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Settings]
+      summary: 텔레그램 설정 저장
+      operationId: updateTelegramSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramSettings'
+      responses:
+        '200':
+          description: 텔레그램 설정 저장 완료
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /alerts:
+    get:
+      tags: [Alerts]
+      summary: 재고부족 알림 로그 조회
+      operationId: listAlerts
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/SizeParam'
+      responses:
+        '200':
+          description: 알림 로그 목록
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /alerts/test:
+    post:
+      tags: [Alerts]
+      summary: 테스트 알림 발송
+      operationId: triggerAlertTest
+      responses:
+        '200':
+          description: 테스트 알림 발송 완료
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /uploads/inbounds:
+    post:
+      tags: [Uploads]
+      summary: 입고 파일 업로드
+      operationId: uploadInboundFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: 업로드 작업 수락
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /uploads/outbounds:
+    post:
+      tags: [Uploads]
+      summary: 출고 파일 업로드
+      operationId: uploadOutboundFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: 업로드 작업 수락
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      description: 페이지 번호
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    SizeParam:
+      name: size
+      in: query
+      description: 페이지당 항목 수
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+  responses:
+    BadRequest:
+      description: 잘못된 요청
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: 인증 필요
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: 리소스를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          nullable: true
+    Page:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+      required: [page, size, total]
+    Role:
+      type: string
+      enum: [admin, operator, viewer]
+    Permission:
+      type: object
+      properties:
+        resource:
+          type: string
+          enum:
+            [
+              dashboard,
+              products,
+              inbounds,
+              outbounds,
+              returns,
+              settings,
+            ]
+        read:
+          type: boolean
+        write:
+          type: boolean
+      required: [resource, read, write]
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        permissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Permission'
+      required: [id, email, name, role]
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        safetyStock:
+          type: integer
+          minimum: 0
+          default: 0
+        totalIn:
+          type: integer
+          default: 0
+        totalOut:
+          type: integer
+          default: 0
+        totalReturn:
+          type: integer
+          default: 0
+        remain:
+          type: integer
+          default: 0
+        status:
+          type: string
+          enum: [normal, warn, low]
+      required: [id, code, name, remain, status]
+    Inbound:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        dateIn:
+          type: string
+          format: date
+        note:
+          type: string
+          nullable: true
+      required: [productId, quantity, dateIn]
+    Outbound:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        dateOut:
+          type: string
+          format: date
+        note:
+          type: string
+          nullable: true
+      required: [productId, quantity, dateOut]
+    Return:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        dateReturn:
+          type: string
+          format: date
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, completed]
+          default: pending
+      required: [productId, quantity, dateReturn, reason]
+    DashboardSummary:
+      type: object
+      properties:
+        totals:
+          type: object
+          properties:
+            totalProducts:
+              type: integer
+            totalIn:
+              type: integer
+            totalOut:
+              type: integer
+            totalReturn:
+              type: integer
+        lowStock:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+      required: [totals, lowStock]
+    TelegramSettings:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        botToken:
+          type: string
+          writeOnly: true
+        chatIds:
+          type: array
+          items:
+            type: string
+        cooldownMinutes:
+          type: integer
+          default: 60
+        quietHours:
+          type: string
+          example: '22-07'
+      required: [enabled, chatIds]
