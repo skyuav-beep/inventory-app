@@ -1,0 +1,9 @@
+{
+  "extends": "../../packages/config/tsconfig.react.json",
+  "compilerOptions": {
+    "useDefineForClassFields": true,
+    "moduleResolution": "Node",
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

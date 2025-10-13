@@ -1,0 +1,244 @@
+
+// ---------------------------------------------------------
+// Prisma schema for Inventory App (PostgreSQL)
+// ---------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------- Enums ------------------------------
+enum Role {
+  admin
+  operator
+  viewer
+}
+
+enum Resource {
+  dashboard
+  products
+  inbounds
+  outbounds
+  returns
+  settings
+}
+
+enum ProductStatus {
+  normal
+  warn
+  low
+}
+
+enum ReturnStatus {
+  pending
+  completed
+}
+
+enum AlertLevel {
+  info
+  warn
+  low
+  error
+}
+
+enum Channel {
+  telegram
+  slack
+  email
+}
+
+enum UploadType {
+  inbound
+  outbound
+}
+
+enum UploadStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+// -------------------- Models -----------------------------
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String
+  role          Role         @default(operator)
+  passwordHash  String
+  disabled      Boolean      @default(false)
+
+  permissions   Permission[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  createdSettings NotificationSetting[] @relation("SettingsCreatedBy")
+  uploadJobs       UploadJob[]          @relation("UploadJobCreatedBy")
+}
+
+model Permission {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  resource  Resource
+  read      Boolean  @default(true)
+  write     Boolean  @default(false)
+
+  @@unique([userId, resource])
+  @@map("permissions")
+}
+
+model Product {
+  id           String         @id @default(cuid())
+  code         String         @unique
+  name         String
+  description  String?
+  safetyStock  Int            @default(0)
+  totalIn      Int            @default(0)
+  totalOut     Int            @default(0)
+  totalReturn  Int            @default(0)
+  remain       Int            @default(0)
+  status       ProductStatus  @default(normal)
+
+  inbounds     Inbound[]
+  outbounds    Outbound[]
+  returns      ReturnRecord[]
+  alerts       Alert[]
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@map("products")
+  @@index([code])
+}
+
+model Inbound {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  quantity  Int
+  dateIn    DateTime
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  @@map("inbounds")
+  @@index([productId, dateIn])
+}
+
+model Outbound {
+  id        String   @id @default(cuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  quantity  Int
+  dateOut   DateTime
+  note      String?
+
+  createdAt DateTime @default(now())
+
+  @@map("outbounds")
+  @@index([productId, dateOut])
+}
+
+model ReturnRecord {
+  id          String        @id @default(cuid())
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String
+  quantity    Int
+  dateReturn  DateTime
+  reason      String
+  status      ReturnStatus  @default(pending)
+
+  createdAt   DateTime      @default(now())
+
+  @@map("returns")
+  @@index([productId, dateReturn])
+}
+
+model Alert {
+  id         String      @id @default(cuid())
+  product    Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId  String?
+  level      AlertLevel  @default(warn)
+  channel    Channel     @default(telegram)
+  message    String
+  dedupKey   String?     // to prevent duplicates within cooldown
+  sentAt     DateTime?
+  createdAt  DateTime    @default(now())
+
+  @@map("alerts")
+  @@index([productId, sentAt(desc)])
+  @@index([dedupKey])
+}
+
+model NotificationSetting {
+  id                   String   @id @default(cuid())
+  telegramEnabled      Boolean  @default(true)
+  telegramCooldownMin  Int      @default(60)
+  telegramQuietHours   String   @default("22-07")
+
+  // Creator (audit)
+  createdBy            User?    @relation("SettingsCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById          String?
+
+  // Telegram targets (group/DM chat ids)
+  telegramTargets      TelegramTarget[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
+model TelegramTarget {
+  id         String   @id @default(cuid())
+  chatId     String
+  label      String?
+  enabled    Boolean  @default(true)
+
+  setting    NotificationSetting @relation(fields: [settingId], references: [id], onDelete: Cascade)
+  settingId  String
+
+  createdAt  DateTime @default(now())
+
+  @@map("telegram_targets")
+  @@index([chatId])
+}
+
+model UploadJob {
+  id          String       @id @default(cuid())
+  type        UploadType
+  status      UploadStatus @default(queued)
+  createdBy   User?        @relation("UploadJobCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdById String?
+  createdAt   DateTime     @default(now())
+  finishedAt  DateTime?
+
+  items       UploadJobItem[]
+
+  @@map("upload_jobs")
+  @@index([type, status])
+  @@index([createdAt])
+}
+
+model UploadJobItem {
+  id          String       @id @default(cuid())
+  job         UploadJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  jobId       String
+  rowNo       Int
+  payloadJson Json
+  status      UploadStatus @default(queued)
+  errorMsg    String?
+
+  createdAt   DateTime     @default(now())
+
+  @@map("upload_job_items")
+  @@index([jobId, rowNo])
+}

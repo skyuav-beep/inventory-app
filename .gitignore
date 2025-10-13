@@ -1,0 +1,19 @@
+# Logs
+tmp_api_server.log
+*.log
+
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+coverage/
+
+# Env files
+.env
+.env.local
+
+# Misc
+.DS_Store
+*.sqlite
+/.turbo/

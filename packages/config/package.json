@@ -1,0 +1,8 @@
+{
+  "name": "@inventory/config",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "echo \"No lint commands for config package\""
+  }
+}
