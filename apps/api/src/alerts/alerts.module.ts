@@ -10,5 +10,6 @@ import { TelegramService } from './telegram/telegram.service';
   imports: [PrismaModule, SettingsModule],
   controllers: [AlertsController],
   providers: [AlertsService, AlertPolicyService, TelegramService],
+  exports: [AlertsService],
 })
 export class AlertsModule {}

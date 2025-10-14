@@ -1,8 +1,9 @@
-import { Controller, Get, HttpCode, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
 import { ActiveUser } from '../auth/decorators/active-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveUserData } from '../auth/types/active-user-data';
 import { AlertListQueryDto } from './dto/alert-query.dto';
+import { SendCustomAlertDto } from './dto/send-custom-alert.dto';
 import { AlertsService } from './alerts.service';
 
 @UseGuards(JwtAuthGuard)
@@ -31,6 +32,17 @@ export class AlertsController {
   @HttpCode(HttpStatus.OK)
   async sendTest(@ActiveUser() activeUser: ActiveUserData) {
     const result = await this.alertsService.sendTestAlert(activeUser);
+    return {
+      success: result.decision.canSend,
+      decision: result.decision,
+      alert: result.alert,
+    };
+  }
+
+  @Post('custom')
+  @HttpCode(HttpStatus.OK)
+  async sendCustom(@Body() payload: SendCustomAlertDto, @ActiveUser() activeUser: ActiveUserData) {
+    const result = await this.alertsService.sendCustomAlert(activeUser, payload.message);
     return {
       success: result.decision.canSend,
       decision: result.decision,

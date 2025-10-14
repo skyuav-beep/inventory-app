@@ -1,15 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProductsService } from '../products/products.service';
+import { AdjustStockResult, ProductsService } from '../products/products.service';
 import { CreateInboundDto } from './dto/create-inbound.dto';
 import { InboundListQueryDto } from './dto/inbound-query.dto';
 import { UpdateInboundDto } from './dto/update-inbound.dto';
 import { InboundEntity, toInboundEntity } from './entities/inbound.entity';
+import { AlertsService } from '../alerts/alerts.service';
+import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
+import { ProductEntity } from '../products/entities/product.entity';
 
 @Injectable()
 export class InboundsService {
-  constructor(private readonly prisma: PrismaService, private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly productsService: ProductsService,
+    private readonly alertsService: AlertsService,
+  ) {}
 
   async findAll(query: InboundListQueryDto): Promise<{ data: InboundEntity[]; total: number }> {
     const page = query.page ?? 1;
@@ -42,7 +49,9 @@ export class InboundsService {
   async create(payload: CreateInboundDto): Promise<InboundEntity> {
     const dateIn = payload.dateIn ?? new Date();
 
-    return this.prisma.$transaction(async (tx) => {
+    const lowStockCandidates = new Map<string, ProductEntity>();
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: payload.productId } });
 
       if (!product) {
@@ -58,16 +67,21 @@ export class InboundsService {
         },
       });
 
-      await this.productsService.adjustStock(
+      const adjustResult = await this.productsService.adjustStock(
         payload.productId,
         {
           inboundDelta: payload.quantity,
         },
         tx,
       );
+      this.collectLowStockCandidate(lowStockCandidates, adjustResult);
 
       return toInboundEntity({ ...inbound, product });
     });
+
+    await this.dispatchLowStockAlerts(lowStockCandidates);
+
+    return result;
   }
 
   async findOne(id: string): Promise<InboundEntity> {
@@ -84,7 +98,9 @@ export class InboundsService {
   }
 
   async update(id: string, payload: UpdateInboundDto): Promise<InboundEntity> {
-    return this.prisma.$transaction(async (tx) => {
+    const lowStockCandidates = new Map<string, ProductEntity>();
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.inbound.findUnique({
         where: { id },
       });
@@ -119,37 +135,46 @@ export class InboundsService {
       if (existing.productId === nextProductId) {
         const delta = nextQuantity - existing.quantity;
         if (delta !== 0) {
-          await this.productsService.adjustStock(
+          const adjustResult = await this.productsService.adjustStock(
             nextProductId,
             {
               inboundDelta: delta,
             },
             tx,
           );
+          this.collectLowStockCandidate(lowStockCandidates, adjustResult);
         }
       } else {
-        await this.productsService.adjustStock(
+        const revertResult = await this.productsService.adjustStock(
           existing.productId,
           {
             inboundDelta: -existing.quantity,
           },
           tx,
         );
+        this.collectLowStockCandidate(lowStockCandidates, revertResult);
 
-        await this.productsService.adjustStock(
+        const applyResult = await this.productsService.adjustStock(
           nextProductId,
           {
             inboundDelta: nextQuantity,
           },
           tx,
         );
+        this.collectLowStockCandidate(lowStockCandidates, applyResult);
       }
 
       return toInboundEntity(updated);
     });
+
+    await this.dispatchLowStockAlerts(lowStockCandidates);
+
+    return result;
   }
 
   async remove(id: string): Promise<void> {
+    const lowStockCandidates = new Map<string, ProductEntity>();
+
     await this.prisma.$transaction(async (tx) => {
       const inbound = await tx.inbound.findUnique({ where: { id } });
 
@@ -159,13 +184,32 @@ export class InboundsService {
 
       await tx.inbound.delete({ where: { id } });
 
-      await this.productsService.adjustStock(
+      const adjustResult = await this.productsService.adjustStock(
         inbound.productId,
         {
           inboundDelta: -inbound.quantity,
         },
         tx,
       );
+      this.collectLowStockCandidate(lowStockCandidates, adjustResult);
     });
+
+    await this.dispatchLowStockAlerts(lowStockCandidates);
+  }
+
+  private collectLowStockCandidate(store: Map<string, ProductEntity>, result: AdjustStockResult): void {
+    if (shouldTriggerLowStockAlert(result.previousStatus, result.product.status)) {
+      store.set(result.product.id, result.product);
+    }
+  }
+
+  private async dispatchLowStockAlerts(store: Map<string, ProductEntity>): Promise<void> {
+    if (store.size === 0) {
+      return;
+    }
+
+    for (const product of store.values()) {
+      await this.alertsService.notifyLowStock(product);
+    }
   }
 }

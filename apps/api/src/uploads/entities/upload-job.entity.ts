@@ -10,6 +10,15 @@ export interface UploadJobEntity {
   filename: string;
   originalName: string;
   lastError?: string | null;
+  itemCounts?: UploadJobItemCounts;
+}
+
+export interface UploadJobItemCounts {
+  total: number;
+  completed: number;
+  failed: number;
+  processing: number;
+  queued: number;
 }
 
 export function toUploadJobEntity(record: UploadJob): UploadJobEntity {

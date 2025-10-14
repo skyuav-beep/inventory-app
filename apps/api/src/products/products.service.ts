@@ -1,15 +1,22 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Product } from '@prisma/client';
+import { Prisma, Product, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductListQueryDto } from './dto/product-query.dto';
 import { ProductEntity, toProductEntity } from './entities/product.entity';
 import { calculateRemain, resolveProductStatus } from './utils/product-stock.util';
+import { AlertsService } from '../alerts/alerts.service';
+import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
+
+export interface AdjustStockResult {
+  product: ProductEntity;
+  previousStatus: ProductStatus;
+}
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly alertsService: AlertsService) {}
 
   async create(payload: CreateProductDto): Promise<ProductEntity> {
     try {
@@ -81,7 +88,18 @@ export class ProductsService {
     return toProductEntity(product);
   }
 
+  async findByCode(code: string): Promise<ProductEntity | null> {
+    const product = await this.prisma.product.findUnique({ where: { code } });
+    return product ? toProductEntity(product) : null;
+  }
+
   async update(id: string, payload: UpdateProductDto): Promise<ProductEntity> {
+    const existing = await this.prisma.product.findUnique({ where: { id } });
+
+    if (!existing) {
+      throw new NotFoundException('제품을 찾을 수 없습니다.');
+    }
+
     const product = await this.prisma.product.update({
       where: { id },
       data: {
@@ -92,8 +110,13 @@ export class ProductsService {
     });
 
     const recalculated = await this.recalculateStock(product.id);
+    const entity = toProductEntity(recalculated);
 
-    return toProductEntity(recalculated);
+    if (shouldTriggerLowStockAlert(existing.status, entity.status)) {
+      await this.alertsService.notifyLowStock(entity);
+    }
+
+    return entity;
   }
 
   async remove(id: string): Promise<void> {
@@ -110,7 +133,7 @@ export class ProductsService {
     productId: string,
     deltas: { inboundDelta?: number; outboundDelta?: number; returnDelta?: number },
     tx?: Prisma.TransactionClient,
-  ): Promise<ProductEntity> {
+  ): Promise<AdjustStockResult> {
     const client = tx ?? this.prisma;
     const product = await client.product.findUnique({ where: { id: productId } });
 
@@ -142,7 +165,10 @@ export class ProductsService {
       },
     });
 
-    return toProductEntity(updated);
+    return {
+      product: toProductEntity(updated),
+      previousStatus: product.status,
+    };
   }
 
   async recalculateStock(productId: string, tx?: Prisma.TransactionClient): Promise<Product> {

@@ -1,5 +1,13 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import { uploadStockFile, UploadKind } from '../../services/uploadService';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  uploadStockFile,
+  UploadKind,
+  fetchUploadJobs,
+  fetchUploadJobItems,
+  UploadJob,
+  UploadJobItem,
+  UploadStatus,
+} from '../../services/uploadService';
 import styles from './UploadsPage.module.css';
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
@@ -35,7 +43,59 @@ export function UploadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<UploadResult | null>(null);
 
+  const [jobs, setJobs] = useState<UploadJob[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobsError, setJobsError] = useState<string | null>(null);
+  const [jobPage, setJobPage] = useState({ page: 1, size: 10, total: 0 });
+
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [jobItems, setJobItems] = useState<UploadJobItem[]>([]);
+  const [jobItemsLoading, setJobItemsLoading] = useState(false);
+  const [jobItemsError, setJobItemsError] = useState<string | null>(null);
+  const [jobItemsPage, setJobItemsPage] = useState({ page: 1, size: 10, total: 0 });
+
   const isSubmitDisabled = useMemo(() => state === 'uploading' || !file, [file, state]);
+
+  const loadJobs = useCallback(
+    async (page = 1) => {
+      try {
+        setJobsLoading(true);
+        setJobsError(null);
+        const response = await fetchUploadJobs({ page, size: 10 });
+        setJobs(response.data);
+        setJobPage(response.page);
+      } catch (err) {
+        console.error(err);
+        setJobsError(err instanceof Error ? err.message : '업로드 내역을 불러오지 못했습니다.');
+      } finally {
+        setJobsLoading(false);
+      }
+    },
+    [],
+  );
+
+  const loadJobItems = useCallback(
+    async (jobId: string, page = 1) => {
+      try {
+        setJobItemsLoading(true);
+        setJobItemsError(null);
+        const response = await fetchUploadJobItems(jobId, { page, size: 10 });
+        setJobItems(response.data);
+        setJobItemsPage(response.page);
+        setSelectedJobId(jobId);
+      } catch (err) {
+        console.error(err);
+        setJobItemsError(err instanceof Error ? err.message : '업로드 상세 내역을 불러오지 못했습니다.');
+      } finally {
+        setJobItemsLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    void loadJobs();
+  }, [loadJobs]);
 
   const handleTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setSelectedType(event.target.value as UploadKind);
@@ -70,11 +130,20 @@ export function UploadsPage() {
         message: response.message,
       });
       setState('success');
+      void loadJobs();
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : '업로드 중 오류가 발생했습니다.');
       setState('error');
     }
+  };
+
+  const handleRefreshJobs = () => {
+    void loadJobs();
+  };
+
+  const handleSelectJob = (jobId: string) => {
+    void loadJobItems(jobId);
   };
 
   return (
@@ -153,7 +222,172 @@ export function UploadsPage() {
           </ul>
         </aside>
       </section>
+
+      <section className={styles.jobsPanel}>
+        <header className={styles.panelHeader}>
+          <div>
+            <h4>업로드 작업 내역</h4>
+            <p>최근 업로드한 작업의 상태를 확인하세요.</p>
+          </div>
+          <button type="button" className={styles.secondaryButton} onClick={handleRefreshJobs}>
+            새로고침
+          </button>
+        </header>
+
+        {jobsError && <p className={styles.errorText}>{jobsError}</p>}
+
+        <div className={styles.tableWrapper}>
+          <table>
+            <thead>
+              <tr>
+                <th>등록 시각</th>
+                <th>유형</th>
+                <th>상태</th>
+                <th>처리 건수</th>
+                <th>메시지</th>
+                <th>액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobsLoading ? (
+                <tr>
+                  <td colSpan={6} className={styles.emptyRow}>
+                    업로드 작업을 불러오는 중입니다...
+                  </td>
+                </tr>
+              ) : jobs.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className={styles.emptyRow}>
+                    등록된 업로드 작업이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                jobs.map((job) => {
+                  const counts = job.itemCounts;
+                  const totalLabel = counts ? `${counts.completed}/${counts.total}` : '-';
+
+                  return (
+                    <tr key={job.id}>
+                      <td>{new Date(job.createdAt).toLocaleString()}</td>
+                      <td>{job.type === 'inbound' ? '입고' : '출고'}</td>
+                      <td>
+                        <span className={`${styles.statusTag} ${styles[`status-${job.status}`]}`}>
+                          {statusLabel(job.status)}
+                        </span>
+                      </td>
+                      <td>{totalLabel}</td>
+                      <td>{job.lastError ?? '-'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className={styles.linkButton}
+                          onClick={() => handleSelectJob(job.id)}
+                        >
+                          상세 보기
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {jobs.length > 0 && (
+          <div className={styles.paginationMeta}>
+            <span>
+              페이지 {jobPage.page} / {Math.max(1, Math.ceil(jobPage.total / jobPage.size))}
+            </span>
+          </div>
+        )}
+      </section>
+
+      {selectedJobId && (
+        <section className={styles.itemsPanel}>
+          <header className={styles.panelHeader}>
+            <div>
+              <h4>작업 상세 ({selectedJobId})</h4>
+              <p>각 행의 처리 결과를 확인할 수 있습니다.</p>
+            </div>
+          </header>
+
+          {jobItemsError && <p className={styles.errorText}>{jobItemsError}</p>}
+
+          <div className={styles.tableWrapper}>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>제품 코드</th>
+                  <th>수량</th>
+                  <th>상태</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobItemsLoading ? (
+                  <tr>
+                    <td colSpan={5} className={styles.emptyRow}>
+                      행 정보를 불러오는 중입니다...
+                    </td>
+                  </tr>
+                ) : jobItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className={styles.emptyRow}>
+                      업로드 행 정보가 없습니다.
+                    </td>
+                  </tr>
+                ) : (
+                  jobItems.map((item) => {
+                    const payload = item.payload;
+                    const note = typeof payload.note === 'string' ? payload.note : undefined;
+                    const code = typeof payload.code === 'string' ? payload.code : '-';
+                    const quantity = typeof payload.quantity === 'number' ? payload.quantity : Number(payload.quantity ?? 0);
+
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.rowNo}</td>
+                        <td>{code}</td>
+                        <td>{Number.isFinite(quantity) ? quantity : '-'}</td>
+                        <td>
+                          <span className={`${styles.statusTag} ${styles[`status-${item.status}`]}`}>
+                            {statusLabel(item.status)}
+                          </span>
+                        </td>
+                        <td>{item.errorMessage ?? note ?? '-'}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {jobItems.length > 0 && (
+            <div className={styles.paginationMeta}>
+              <span>
+                페이지 {jobItemsPage.page} / {Math.max(1, Math.ceil(jobItemsPage.total / jobItemsPage.size))}
+              </span>
+            </div>
+          )}
+        </section>
+      )}
     </div>
   );
 }
 
+function statusLabel(status: UploadStatus): string {
+  switch (status) {
+    case 'queued':
+      return '대기';
+    case 'processing':
+      return '처리 중';
+    case 'completed':
+      return '완료';
+    case 'failed':
+      return '실패';
+    default:
+      return status;
+  }
+}

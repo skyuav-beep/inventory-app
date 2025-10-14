@@ -1,15 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { ProductsService } from '../products/products.service';
+import { AdjustStockResult, ProductsService } from '../products/products.service';
 import { CreateOutboundDto } from './dto/create-outbound.dto';
 import { OutboundListQueryDto } from './dto/outbound-query.dto';
 import { UpdateOutboundDto } from './dto/update-outbound.dto';
 import { OutboundEntity, toOutboundEntity } from './entities/outbound.entity';
+import { AlertsService } from '../alerts/alerts.service';
+import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
+import { ProductEntity } from '../products/entities/product.entity';
 
 @Injectable()
 export class OutboundsService {
-  constructor(private readonly prisma: PrismaService, private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly productsService: ProductsService,
+    private readonly alertsService: AlertsService,
+  ) {}
 
   async findAll(query: OutboundListQueryDto): Promise<{ data: OutboundEntity[]; total: number }> {
     const page = query.page ?? 1;
@@ -42,7 +49,9 @@ export class OutboundsService {
   async create(payload: CreateOutboundDto): Promise<OutboundEntity> {
     const dateOut = payload.dateOut ?? new Date();
 
-    return this.prisma.$transaction(async (tx) => {
+    const lowStockCandidates = new Map<string, ProductEntity>();
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({ where: { id: payload.productId } });
 
       if (!product) {
@@ -62,16 +71,21 @@ export class OutboundsService {
         },
       });
 
-      await this.productsService.adjustStock(
+      const adjustResult = await this.productsService.adjustStock(
         payload.productId,
         {
           outboundDelta: payload.quantity,
         },
         tx,
       );
+      this.collectLowStockCandidate(lowStockCandidates, adjustResult);
 
       return toOutboundEntity({ ...outbound, product });
     });
+
+    await this.dispatchLowStockAlerts(lowStockCandidates);
+
+    return result;
   }
 
   async findOne(id: string): Promise<OutboundEntity> {
@@ -88,7 +102,9 @@ export class OutboundsService {
   }
 
   async update(id: string, payload: UpdateOutboundDto): Promise<OutboundEntity> {
-    return this.prisma.$transaction(async (tx) => {
+    const lowStockCandidates = new Map<string, ProductEntity>();
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.outbound.findUnique({
         where: { id },
         include: { product: true },
@@ -106,13 +122,15 @@ export class OutboundsService {
       let targetProduct = existing.product;
 
       if (nextProductId !== existing.productId) {
-        targetProduct = await tx.product.findUnique({ where: { id: nextProductId } });
+        const swappedProduct = await tx.product.findUnique({ where: { id: nextProductId } });
 
-        if (!targetProduct) {
+        if (!swappedProduct) {
           throw new NotFoundException('제품을 찾을 수 없습니다.');
         }
 
-        if (targetProduct.remain < nextQuantity) {
+        targetProduct = swappedProduct;
+
+        if (swappedProduct.remain < nextQuantity) {
           throw new BadRequestException('출고 수량이 재고보다 많습니다.');
         }
       } else {
@@ -136,37 +154,46 @@ export class OutboundsService {
       if (existing.productId === nextProductId) {
         const diff = nextQuantity - existing.quantity;
         if (diff !== 0) {
-          await this.productsService.adjustStock(
+          const adjustResult = await this.productsService.adjustStock(
             nextProductId,
             {
               outboundDelta: diff,
             },
             tx,
           );
+          this.collectLowStockCandidate(lowStockCandidates, adjustResult);
         }
       } else {
-        await this.productsService.adjustStock(
+        const revertResult = await this.productsService.adjustStock(
           existing.productId,
           {
             outboundDelta: -existing.quantity,
           },
           tx,
         );
+        this.collectLowStockCandidate(lowStockCandidates, revertResult);
 
-        await this.productsService.adjustStock(
+        const applyResult = await this.productsService.adjustStock(
           nextProductId,
           {
             outboundDelta: nextQuantity,
           },
           tx,
         );
+        this.collectLowStockCandidate(lowStockCandidates, applyResult);
       }
 
       return toOutboundEntity(updated);
     });
+
+    await this.dispatchLowStockAlerts(lowStockCandidates);
+
+    return result;
   }
 
   async remove(id: string): Promise<void> {
+    const lowStockCandidates = new Map<string, ProductEntity>();
+
     await this.prisma.$transaction(async (tx) => {
       const outbound = await tx.outbound.findUnique({ where: { id } });
 
@@ -176,13 +203,32 @@ export class OutboundsService {
 
       await tx.outbound.delete({ where: { id } });
 
-      await this.productsService.adjustStock(
+      const adjustResult = await this.productsService.adjustStock(
         outbound.productId,
         {
           outboundDelta: -outbound.quantity,
         },
         tx,
       );
+      this.collectLowStockCandidate(lowStockCandidates, adjustResult);
     });
+
+    await this.dispatchLowStockAlerts(lowStockCandidates);
+  }
+
+  private collectLowStockCandidate(store: Map<string, ProductEntity>, result: AdjustStockResult): void {
+    if (shouldTriggerLowStockAlert(result.previousStatus, result.product.status)) {
+      store.set(result.product.id, result.product);
+    }
+  }
+
+  private async dispatchLowStockAlerts(store: Map<string, ProductEntity>): Promise<void> {
+    if (store.size === 0) {
+      return;
+    }
+
+    for (const product of store.values()) {
+      await this.alertsService.notifyLowStock(product);
+    }
   }
 }

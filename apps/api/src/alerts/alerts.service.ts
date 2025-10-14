@@ -1,13 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { AlertLevel, Channel, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActiveUserData } from '../auth/types/active-user-data';
 import { AlertListQueryDto } from './dto/alert-query.dto';
 import { AlertEntity, toAlertEntity } from './entities/alert.entity';
 import { buildTestAlertMessage } from './utils/test-alert.util';
+import { buildLowStockAlertMessage } from './utils/low-stock.util';
 import { AlertPolicyDecision, AlertPolicyService } from './alert-policy.service';
 import { SettingsService } from '../settings/settings.service';
 import { TelegramService } from './telegram/telegram.service';
+import { ProductEntity } from '../products/entities/product.entity';
 
 export interface AlertSendResult {
   decision: AlertPolicyDecision;
@@ -90,6 +92,87 @@ export class AlertsService {
     });
 
     await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, message);
+
+    return {
+      decision,
+      alert,
+    };
+  }
+
+  async notifyLowStock(product: Pick<ProductEntity, 'id' | 'name' | 'code' | 'remain' | 'safetyStock'>): Promise<AlertSendResult> {
+    const message = buildLowStockAlertMessage(product);
+
+    const decision = await this.policy.decideSend({
+      productId: product.id,
+      channel: Channel.telegram,
+      level: AlertLevel.low,
+    });
+
+    if (!decision.canSend) {
+      await this.registerDeferredAlert(decision, {
+        productId: product.id,
+        message,
+        channel: Channel.telegram,
+        level: AlertLevel.low,
+      });
+
+      return {
+        decision,
+      };
+    }
+
+    const settings = await this.settingsService.getRawSettings();
+
+    const alert = await this.createAlertRecord({
+      productId: product.id,
+      level: AlertLevel.low,
+      channel: Channel.telegram,
+      message,
+    });
+
+    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, message);
+
+    return {
+      decision,
+      alert,
+    };
+  }
+
+  async sendCustomAlert(activeUser: ActiveUserData, message: string): Promise<AlertSendResult> {
+    const trimmed = message.trim();
+
+    if (!trimmed) {
+      throw new BadRequestException('메시지를 입력해주세요.');
+    }
+
+    const decision = await this.policy.decideSend({
+      channel: Channel.telegram,
+      level: AlertLevel.info,
+    });
+
+    const finalMessage = `[관리자 ${activeUser.name}] ${trimmed}`;
+
+    if (!decision.canSend) {
+      await this.registerDeferredAlert(decision, {
+        message: finalMessage,
+        channel: Channel.telegram,
+        level: AlertLevel.info,
+      });
+
+      return {
+        decision,
+      };
+    }
+
+    const settings = await this.settingsService.getRawSettings();
+
+    const alert = await this.createAlertRecord({
+      level: AlertLevel.info,
+      channel: Channel.telegram,
+      message: finalMessage,
+    });
+
+    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, finalMessage);
 
     return {
       decision,

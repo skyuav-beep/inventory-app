@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { randomUUID } from 'node:crypto';
@@ -7,6 +7,8 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { TelegramService } from '../../src/alerts/telegram/telegram.service';
 import { AlertLevel, Channel, ProductStatus, Resource, Role, ReturnStatus } from '@prisma/client';
+
+jest.setTimeout(60000);
 
 const VIEWER_EMAIL = 'viewer@example.com';
 const VIEWER_PASSWORD = 'ViewerPass123!';
@@ -908,92 +910,106 @@ class StubTelegramService {
   }
 }
 
-export async function runE2eTests() {
-  process.env.JWT_SECRET = 'test-secret';
-  const useRealDatabase = process.env.E2E_USE_REAL_DB === 'true';
+const operatorWritableResources = new Set<Resource>([
+  Resource.products,
+  Resource.inbounds,
+  Resource.outbounds,
+  Resource.returns,
+]);
 
-  const inMemoryPrisma = new InMemoryPrismaService();
+describe('AppModule e2e', () => {
+  it('should execute core inventory flows', async () => {
+    process.env.JWT_SECRET = 'test-secret';
+    const useRealDatabase = process.env.E2E_USE_REAL_DB === 'true';
 
-  inMemoryPrisma.addUser({
-    email: VIEWER_EMAIL,
-    name: 'Viewer',
-    role: Role.viewer,
-    password: VIEWER_PASSWORD,
-    permissions: Object.values(Resource).map((resource) => ({
-      resource,
-      read: resource !== Resource.settings,
-      write: false,
-    })),
-  });
+    const inMemoryPrisma = new InMemoryPrismaService();
 
-  inMemoryPrisma.addUser({
-    email: OPERATOR_EMAIL,
-    name: 'Operator',
-    role: Role.operator,
-    password: OPERATOR_PASSWORD,
-    permissions: Object.values(Resource).map((resource) => ({
-      resource,
-      read: true,
-      write: [Resource.products, Resource.inbounds, Resource.outbounds, Resource.returns].includes(resource),
-    })),
-  });
+    inMemoryPrisma.addUser({
+      email: VIEWER_EMAIL,
+      name: 'Viewer',
+      role: Role.viewer,
+      password: VIEWER_PASSWORD,
+      permissions: Object.values(Resource).map((resource) => ({
+        resource,
+        read: resource !== Resource.settings,
+        write: false,
+      })),
+    });
 
-  const telegramStub = new StubTelegramService();
+    inMemoryPrisma.addUser({
+      email: OPERATOR_EMAIL,
+      name: 'Operator',
+      role: Role.operator,
+      password: OPERATOR_PASSWORD,
+      permissions: Object.values(Resource).map((resource) => ({
+        resource,
+        read: true,
+        write: operatorWritableResources.has(resource),
+      })),
+    });
 
-  const testingModuleBuilder = Test.createTestingModule({
-    imports: [AppModule],
-  }).overrideProvider(TelegramService)
-    .useValue(telegramStub);
+    const telegramStub = new StubTelegramService();
 
-  if (!useRealDatabase) {
-    testingModuleBuilder.overrideProvider(PrismaService).useValue(inMemoryPrisma);
-  }
+    const testingModuleBuilder = Test.createTestingModule({
+      imports: [AppModule],
+    })
+      .overrideProvider(TelegramService)
+      .useValue(telegramStub);
 
-  const moduleRef = await testingModuleBuilder.compile();
+    if (!useRealDatabase) {
+      testingModuleBuilder.overrideProvider(PrismaService).useValue(inMemoryPrisma);
+    }
 
-  const app = moduleRef.createNestApplication();
-  app.setGlobalPrefix('api/v1');
-  app.enableCors();
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-  await app.init();
+    const moduleRef = await testingModuleBuilder.compile();
 
-  const prisma = moduleRef.get(PrismaService);
+    let app: INestApplication | null = null;
+    let prisma: PrismaService | null = null;
 
-  if (useRealDatabase) {
-    await prisma.$connect();
-    await seedRealDatabase(prisma);
-  }
+    try {
+      app = moduleRef.createNestApplication();
+      app.setGlobalPrefix('api/v1');
+      app.enableCors();
+      app.useGlobalPipes(
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+          transformOptions: { enableImplicitConversion: true },
+        }),
+      );
+      await app.init();
 
-  const loginResponse = await request(app.getHttpServer())
-    .post('/api/v1/auth/login')
-    .send({ email: 'admin@example.com', password: 'ChangeMe123!' });
+      const prismaService = moduleRef.get(PrismaService);
+      prisma = prismaService;
 
-  if (!loginResponse.body.accessToken) {
-    throw new Error('Access token not returned');
-  }
+      if (useRealDatabase) {
+        await prismaService.$connect();
+        await seedRealDatabase(prismaService);
+      }
 
-  const token = loginResponse.body.accessToken as string;
+      const loginResponse = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: 'admin@example.com', password: 'ChangeMe123!' });
 
-  const viewerLoginResponse = await request(app.getHttpServer())
-    .post('/api/v1/auth/login')
-    .send({ email: VIEWER_EMAIL, password: VIEWER_PASSWORD })
-    .expect(200);
+      if (!loginResponse.body.accessToken) {
+        throw new Error('Access token not returned');
+      }
 
-  const viewerToken = viewerLoginResponse.body.accessToken as string;
+      const token = loginResponse.body.accessToken as string;
 
-  const operatorLoginResponse = await request(app.getHttpServer())
-    .post('/api/v1/auth/login')
-    .send({ email: OPERATOR_EMAIL, password: OPERATOR_PASSWORD })
-    .expect(200);
+      const viewerLoginResponse = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: VIEWER_EMAIL, password: VIEWER_PASSWORD })
+        .expect(200);
 
-  const operatorToken = operatorLoginResponse.body.accessToken as string;
+      const viewerToken = viewerLoginResponse.body.accessToken as string;
+
+      const operatorLoginResponse = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: OPERATOR_EMAIL, password: OPERATOR_PASSWORD })
+        .expect(200);
+
+      const operatorToken = operatorLoginResponse.body.accessToken as string;
 
   await request(app.getHttpServer())
     .get('/api/v1/auth/me')
@@ -1434,12 +1450,17 @@ export async function runE2eTests() {
     throw new Error('텔레그램 전송이 호출되지 않았습니다.');
   }
 
-  await app.close();
+    } finally {
+      if (app) {
+        await app.close();
+      }
 
-  if (useRealDatabase) {
-    await prisma.$disconnect();
-  }
-}
+      if (useRealDatabase && prisma) {
+        await prisma.$disconnect();
+      }
+    }
+  });
+});
 
 async function seedRealDatabase(prisma: PrismaService) {
   await prisma.alert.deleteMany();
@@ -1497,7 +1518,7 @@ async function seedRealDatabase(prisma: PrismaService) {
         create: Object.values(Resource).map((resource) => ({
           resource,
           read: true,
-          write: [Resource.products, Resource.inbounds, Resource.outbounds, Resource.returns].includes(resource),
+          write: operatorWritableResources.has(resource),
         })),
       },
     },
