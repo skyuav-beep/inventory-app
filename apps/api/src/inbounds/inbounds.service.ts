@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuditAction, Prisma, Resource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockResult, ProductsService } from '../products/products.service';
 import { CreateInboundDto } from './dto/create-inbound.dto';
@@ -9,6 +9,14 @@ import { InboundEntity, toInboundEntity } from './entities/inbound.entity';
 import { AlertsService } from '../alerts/alerts.service';
 import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
 import { ProductEntity } from '../products/entities/product.entity';
+import { AuditService } from '../audit/audit.service';
+import { ActiveUserData } from '../auth/types/active-user-data';
+
+interface AuditContext {
+  actor?: ActiveUserData | null;
+  ip?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class InboundsService {
@@ -16,6 +24,7 @@ export class InboundsService {
     private readonly prisma: PrismaService,
     private readonly productsService: ProductsService,
     private readonly alertsService: AlertsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findAll(query: InboundListQueryDto): Promise<{ data: InboundEntity[]; total: number }> {
@@ -46,7 +55,7 @@ export class InboundsService {
     };
   }
 
-  async create(payload: CreateInboundDto): Promise<InboundEntity> {
+  async create(payload: CreateInboundDto, context?: AuditContext): Promise<InboundEntity> {
     const dateIn = payload.dateIn ?? new Date();
 
     const lowStockCandidates = new Map<string, ProductEntity>();
@@ -56,6 +65,10 @@ export class InboundsService {
 
       if (!product) {
         throw new NotFoundException('제품을 찾을 수 없습니다.');
+      }
+
+      if (product.disabled) {
+        throw new BadRequestException('사용 중지된 제품은 입고할 수 없습니다.');
       }
 
       const inbound = await tx.inbound.create({
@@ -81,6 +94,16 @@ export class InboundsService {
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.inbounds,
+      action: AuditAction.create,
+      entityId: result.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return result;
   }
 
@@ -97,7 +120,7 @@ export class InboundsService {
     return toInboundEntity(inbound);
   }
 
-  async update(id: string, payload: UpdateInboundDto): Promise<InboundEntity> {
+  async update(id: string, payload: UpdateInboundDto, context?: AuditContext): Promise<InboundEntity> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -118,6 +141,10 @@ export class InboundsService {
         const product = await tx.product.findUnique({ where: { id: nextProductId } });
         if (!product) {
           throw new NotFoundException('제품을 찾을 수 없습니다.');
+        }
+
+        if (product.disabled) {
+          throw new BadRequestException('사용 중지된 제품은 입고할 수 없습니다.');
         }
       }
 
@@ -169,10 +196,20 @@ export class InboundsService {
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.inbounds,
+      action: AuditAction.update,
+      entityId: result.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return result;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, context?: AuditContext): Promise<void> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     await this.prisma.$transaction(async (tx) => {
@@ -192,6 +229,16 @@ export class InboundsService {
         tx,
       );
       this.collectLowStockCandidate(lowStockCandidates, adjustResult);
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.inbounds,
+        action: AuditAction.delete,
+        entityId: inbound.id,
+        payload: this.toJsonValue(inbound),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
     });
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
@@ -210,6 +257,18 @@ export class InboundsService {
 
     for (const product of store.values()) {
       await this.alertsService.notifyLowStock(product);
+    }
+  }
+
+  private toJsonValue(value: unknown) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value)) as Prisma.JsonValue;
+    } catch {
+      return undefined;
     }
   }
 }

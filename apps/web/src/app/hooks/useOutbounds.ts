@@ -34,6 +34,7 @@ export function useOutbounds(initialFilters: UseOutboundsFilters = { search: '' 
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<UseOutboundsFilters>(initialFilters);
   const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
+  const [refreshIndex, setRefreshIndex] = useState(0);
 
   const loadOutbounds = useCallback(
     async (params: FetchOutboundsParams) => {
@@ -58,7 +59,7 @@ export function useOutbounds(initialFilters: UseOutboundsFilters = { search: '' 
 
   useEffect(() => {
     void loadOutbounds({ page, size: DEFAULT_PAGE.size });
-  }, [loadOutbounds, page]);
+  }, [loadOutbounds, page, refreshIndex]);
 
   useEffect(() => {
     const filtered = rawItems.filter((item) => {
@@ -93,6 +94,10 @@ export function useOutbounds(initialFilters: UseOutboundsFilters = { search: '' 
     };
   }, [items]);
 
+  const refresh = useCallback(() => {
+    setRefreshIndex((index) => index + 1);
+  }, []);
+
   return {
     items,
     pagination,
@@ -101,7 +106,7 @@ export function useOutbounds(initialFilters: UseOutboundsFilters = { search: '' 
     filters,
     setSearch,
     setPage,
+    refresh,
     summary,
   };
 }
-

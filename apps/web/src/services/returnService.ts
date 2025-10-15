@@ -30,6 +30,14 @@ export interface FetchReturnsParams {
   status?: ReturnStatus;
 }
 
+export interface CreateReturnPayload {
+  productId: string;
+  quantity: number;
+  reason: string;
+  dateReturn?: string;
+  status?: ReturnStatus;
+}
+
 export async function fetchReturns(params: FetchReturnsParams = {}): Promise<ReturnListResponse> {
   const query = new URLSearchParams();
 
@@ -53,3 +61,9 @@ export async function fetchReturns(params: FetchReturnsParams = {}): Promise<Ret
   return apiFetch<ReturnListResponse>(`/api/v1/returns${queryString}`);
 }
 
+export async function createReturn(payload: CreateReturnPayload): Promise<ReturnListItem> {
+  return apiFetch<ReturnListItem>('/api/v1/returns', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

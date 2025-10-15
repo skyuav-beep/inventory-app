@@ -24,14 +24,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    env_file:
+      - ../.env
     environment:
-      NODE_ENV: development
-      DATABASE_URL: postgres://inventory:inventory@db:5432/inventory
-      JWT_SECRET: changeme
-      TELEGRAM_BOT_TOKEN: ''
-      TELEGRAM_CHAT_ID: ''
-      ALERT_COOLDOWN_MINUTES: '60'
-      QUIET_HOURS: '22-07'
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgres://inventory:inventory@db:5432/inventory}
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      ALERT_COOLDOWN_MINUTES: ${ALERT_COOLDOWN_MINUTES:-60}
+      QUIET_HOURS: ${QUIET_HOURS:-22-07}
     ports:
       - '3000:3000'
     volumes:
@@ -49,7 +51,7 @@ services:
       - ../apps/web:/app
       - /app/node_modules
     environment:
-      VITE_API_BASE_URL: http://localhost:3000
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://api:3000}
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - api

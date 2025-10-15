@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTestResponse,
   fetchTelegramSettings,
@@ -7,6 +7,10 @@ import {
   TelegramSettingsResponse,
   updateTelegramSettings,
 } from '../../services/settingsService';
+import { fetchPermissionTemplates, createUser, PermissionDefinition, Role, UserListItem } from '../../services/userService';
+import { useUsers } from '../../app/hooks/useUsers';
+import { Modal } from '../../components/ui/Modal';
+import { useAuth } from '../../hooks/useAuth';
 import styles from './SettingsPage.module.css';
 
 interface TargetFormState {
@@ -25,6 +29,67 @@ interface TelegramFormState {
 }
 
 type FeedbackVariant = 'success' | 'error' | 'info';
+
+interface UserFormState {
+  email: string;
+  name: string;
+  role: Role;
+  password: string;
+  permissions: PermissionDefinition[];
+}
+
+const ROLE_LABELS: Record<Role, string> = {
+  admin: '관리자',
+  operator: '운영자',
+  viewer: '열람자',
+};
+
+const RESOURCE_LABELS: Record<string, string> = {
+  dashboard: '대시보드',
+  products: '제품',
+  inbounds: '입고',
+  outbounds: '출고',
+  returns: '반품',
+  settings: '설정',
+};
+
+type PermissionTemplates = Record<Role, PermissionDefinition[]>;
+const DEFAULT_ROLE: Role = 'operator';
+
+function clonePermissions(
+  role: Role,
+  templates: PermissionTemplates | null,
+  fallbackResources: string[],
+): PermissionDefinition[] {
+  const template = templates?.[role];
+  if (template && template.length > 0) {
+    return template.map((item) => ({
+      resource: item.resource,
+      read: item.read,
+      write: item.write,
+    }));
+  }
+
+  return fallbackResources.map((resource) => ({
+    resource,
+    read: true,
+    write: role === 'admin',
+  }));
+}
+
+function createDefaultUserForm(
+  role: Role,
+  templates: PermissionTemplates | null,
+  resources: string[],
+): UserFormState {
+  return {
+    email: '',
+    name: '',
+    role,
+    password: '',
+    permissions: clonePermissions(role, templates, resources),
+  };
+}
 
 function generateKey(base: string): string {
   const random = Math.random().toString(36).slice(2, 8);
@@ -87,6 +152,7 @@ function buildPolicyFeedback(decision: AlertTestResponse['decision']): string {
 }
 
 export function SettingsPage() {
+  const { hasPermission } = useAuth();
   const [form, setForm] = useState<TelegramFormState>({
     enabled: false,
     botToken: '',
@@ -105,6 +171,33 @@ export function SettingsPage() {
   const [sendingCustom, setSendingCustom] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [customMessage, setCustomMessage] = useState('');
+  const {
+    items: users,
+    pagination: usersPage,
+    loading: usersLoading,
+    error: usersError,
+    setPage: setUsersPage,
+    refresh: refreshUsers,
+  } = useUsers();
+  const [userSuccess, setUserSuccess] = useState<string | null>(null);
+  const [userError, setUserError] = useState<string | null>(null);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [userFormSubmitting, setUserFormSubmitting] = useState(false);
+  const [userFormError, setUserFormError] = useState<string | null>(null);
+  const resourceKeys = useMemo(() => Object.keys(RESOURCE_LABELS), []);
+  const [permissionTemplates, setPermissionTemplates] = useState<PermissionTemplates | null>(null);
+  const [permissionTemplatesLoading, setPermissionTemplatesLoading] = useState(false);
+  const [permissionTemplatesError, setPermissionTemplatesError] = useState<string | null>(null);
+  const [userForm, setUserForm] = useState<UserFormState>(() =>
+    createDefaultUserForm(DEFAULT_ROLE, null, resourceKeys),
+  );
+  const canManageUsers = hasPermission('settings', { write: true });
+  const totalUserPages = useMemo(() => {
+    if (usersPage.size === 0) {
+      return 1;
+    }
+    return Math.max(1, Math.ceil(usersPage.total / usersPage.size));
+  }, [usersPage.size, usersPage.total]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -170,6 +263,142 @@ export function SettingsPage() {
 
   const handleAddTarget = () => {
     setForm((prev) => ({ ...prev, targets: [...prev.targets, createEmptyTarget()] }));
+  };
+
+  const loadPermissionTemplates = useCallback(async () => {
+    if (permissionTemplates || permissionTemplatesLoading) {
+      return;
+    }
+
+    try {
+      setPermissionTemplatesLoading(true);
+      setPermissionTemplatesError(null);
+      const response = await fetchPermissionTemplates();
+      setPermissionTemplates(response.data);
+      setUserForm((prev) => createDefaultUserForm(prev.role, response.data, resourceKeys));
+    } catch (error) {
+      console.error(error);
+      setPermissionTemplatesError('권한 템플릿을 불러오지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setPermissionTemplatesLoading(false);
+    }
+  }, [permissionTemplates, permissionTemplatesLoading, resourceKeys]);
+
+  const openUserModal = () => {
+    setUserFormError(null);
+    setUserError(null);
+    setUserSuccess(null);
+    setUserForm(createDefaultUserForm(DEFAULT_ROLE, permissionTemplates, resourceKeys));
+    setUserModalOpen(true);
+  };
+
+  const handleCloseUserModal = () => {
+    if (userFormSubmitting) {
+      return;
+    }
+    setUserModalOpen(false);
+  };
+
+  useEffect(() => {
+    if (userModalOpen) {
+      void loadPermissionTemplates();
+    }
+  }, [userModalOpen, loadPermissionTemplates]);
+
+  const handleUserRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextRole = event.target.value as Role;
+    setUserForm((prev) => ({
+      ...prev,
+      role: nextRole,
+      permissions: clonePermissions(nextRole, permissionTemplates, resourceKeys),
+    }));
+  };
+
+  const handlePermissionToggle = (resource: string, field: 'read' | 'write', checked: boolean) => {
+    setUserForm((prev) => {
+      const nextPermissions = prev.permissions.map((permission) => {
+        if (permission.resource !== resource) {
+          return permission;
+        }
+
+        if (field === 'read') {
+          return {
+            ...permission,
+            read: checked,
+            write: checked ? permission.write : false,
+          };
+        }
+
+        return {
+          ...permission,
+          write: checked,
+          read: checked ? true : permission.read,
+        };
+      });
+
+      return {
+        ...prev,
+        permissions: nextPermissions,
+      };
+    });
+  };
+
+  const handleResetPermissionsToTemplate = () => {
+    setUserForm((prev) => ({
+      ...prev,
+      permissions: clonePermissions(prev.role, permissionTemplates, resourceKeys),
+    }));
+  };
+
+  const sanitizeUserForm = (formState: UserFormState) => {
+    return {
+      email: formState.email.trim(),
+      name: formState.name.trim(),
+      password: formState.password,
+      role: formState.role,
+      permissions: formState.permissions.map((permission) => ({
+        resource: permission.resource,
+        read: permission.read || permission.write,
+        write: permission.write,
+      })),
+    };
+  };
+
+  const handleSubmitUserForm = async (event?: FormEvent<HTMLFormElement>) => {
+    if (event) {
+      event.preventDefault();
+    }
+
+    setUserFormError(null);
+    setUserError(null);
+
+    const trimmedEmail = userForm.email.trim();
+    const trimmedName = userForm.name.trim();
+
+    if (!trimmedEmail || !trimmedName) {
+      setUserFormError('이메일과 이름을 입력해 주세요.');
+      return;
+    }
+
+    if (userForm.password.length < 8) {
+      setUserFormError('비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+
+    try {
+      setUserFormSubmitting(true);
+      const payload = sanitizeUserForm(userForm);
+      await createUser(payload);
+      setUserSuccess('새 사용자를 초대했습니다.');
+      setUserModalOpen(false);
+      setUserForm(createDefaultUserForm(DEFAULT_ROLE, permissionTemplates, resourceKeys));
+      refreshUsers();
+    } catch (error) {
+      console.error(error);
+      setUserFormError('사용자 생성 중 오류가 발생했습니다. 입력값을 확인한 뒤 다시 시도해 주세요.');
+    } finally {
+      setUserFormSubmitting(false);
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -495,21 +724,236 @@ export function SettingsPage() {
         <header className={styles.sectionHeader}>
           <div>
             <h3>사용자 & 권한</h3>
-            <p>역할 기반 접근제어(RBAC) 화면은 다음 스프린트에서 연결될 예정입니다.</p>
+            <p>역할별 기본 권한을 기반으로 사용자 접근 범위를 관리할 수 있습니다.</p>
           </div>
+          {canManageUsers && (
+            <div className={styles.buttonRow}>
+              <button type="button" className={styles.primaryButton} onClick={openUserModal}>
+                사용자 초대
+              </button>
+            </div>
+          )}
         </header>
 
-        <div className={styles.placeholderCard}>
-          <p>
-            현재는 관리자 권한으로만 접근이 가능합니다. 곧 사용자 목록과 권한 템플릿을 설정할 수 있는 UI가 추가될 예정입니다.
-          </p>
-          <div className={styles.placeholderActions}>
-            <button type="button" className={styles.secondaryButton}>
-              권한 정책 문서 보기
+        {userSuccess && <div className={`${styles.feedback} ${styles.feedbackSuccess}`}>{userSuccess}</div>}
+        {(userError || usersError) && (
+          <div className={`${styles.feedback} ${styles.feedbackError}`}>{userError ?? usersError}</div>
+        )}
+
+        <div className={styles.usersTableWrapper}>
+          {usersLoading ? (
+            <div className={styles.loadingRow}>사용자 정보를 불러오는 중입니다...</div>
+          ) : users.length === 0 ? (
+            <div className={styles.emptyUsers}>등록된 사용자가 없습니다.</div>
+          ) : (
+            <table className={styles.usersTable}>
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>이메일</th>
+                  <th>역할</th>
+                  <th>읽기 권한</th>
+                  <th>쓰기 권한</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((userItem: UserListItem) => {
+                  const readable = userItem.permissions.filter((permission) => permission.read);
+                  const writable = userItem.permissions.filter((permission) => permission.write);
+                  return (
+                    <tr key={userItem.id}>
+                      <td>
+                        <div className={styles.userNameCell}>
+                          <span className={styles.userName}>{userItem.name}</span>
+                          <span className={styles.userRoleBadge}>{ROLE_LABELS[userItem.role] ?? userItem.role}</span>
+                        </div>
+                      </td>
+                      <td>{userItem.email}</td>
+                      <td>{ROLE_LABELS[userItem.role] ?? userItem.role}</td>
+                      <td>
+                        <div className={styles.permissionChips}>
+                          {readable.length === 0
+                            ? '-'
+                            : readable.map((permission) => (
+                                <span key={`${userItem.id}-read-${permission.resource}`} className={styles.chip}>
+                                  {RESOURCE_LABELS[permission.resource] ?? permission.resource}
+                                </span>
+                              ))}
+                        </div>
+                      </td>
+                      <td>
+                        <div className={styles.permissionChips}>
+                          {writable.length === 0
+                            ? '-'
+                            : writable.map((permission) => (
+                                <span key={`${userItem.id}-write-${permission.resource}`} className={styles.chipAccent}>
+                                  {RESOURCE_LABELS[permission.resource] ?? permission.resource}
+                                </span>
+                              ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {users.length > 0 && (
+          <div className={styles.paginationRow}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => setUsersPage(usersPage.page - 1)}
+              disabled={usersPage.page <= 1 || usersLoading}
+            >
+              이전
+            </button>
+            <span className={styles.paginationMeta}>
+              페이지 {usersPage.page} / {totalUserPages}
+            </span>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => setUsersPage(usersPage.page + 1)}
+              disabled={usersPage.page >= totalUserPages || usersLoading}
+            >
+              다음
             </button>
           </div>
-        </div>
+        )}
       </section>
+
+      <Modal
+        open={userModalOpen}
+        onClose={handleCloseUserModal}
+        title="새 사용자 초대"
+        size="lg"
+        footer={
+          <>
+            <button type="button" className={styles.secondaryButton} onClick={handleCloseUserModal} disabled={userFormSubmitting}>
+              취소
+            </button>
+            <button type="submit" form="user-create-form" className={styles.primaryButton} disabled={userFormSubmitting}>
+              {userFormSubmitting ? '생성 중...' : '사용자 생성'}
+            </button>
+          </>
+        }
+      >
+        <form id="user-create-form" className={styles.userForm} onSubmit={handleSubmitUserForm}>
+          <div className={styles.modalGrid}>
+            <div className={styles.modalField}>
+              <label htmlFor="user-email">이메일</label>
+              <input
+                id="user-email"
+                type="email"
+                value={userForm.email}
+                onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+            <div className={styles.modalField}>
+              <label htmlFor="user-name">이름</label>
+              <input
+                id="user-name"
+                type="text"
+                value={userForm.name}
+                onChange={(event) => setUserForm((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="홍길동"
+                required
+              />
+            </div>
+            <div className={styles.modalField}>
+              <label htmlFor="user-role">역할</label>
+              <select id="user-role" value={userForm.role} onChange={handleUserRoleChange}>
+                <option value="admin">관리자</option>
+                <option value="operator">운영자</option>
+                <option value="viewer">열람자</option>
+              </select>
+            </div>
+            <div className={styles.modalField}>
+              <label htmlFor="user-password">임시 비밀번호</label>
+              <input
+                id="user-password"
+                type="password"
+                value={userForm.password}
+                onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
+                placeholder="최소 8자, 영문/숫자 혼합"
+                minLength={8}
+                required
+              />
+            </div>
+          </div>
+
+          <div className={styles.permissionsHeader}>
+            <div>
+              <h4>세부 권한 설정</h4>
+              <p className={styles.helpText}>역할 템플릿을 기반으로 필요 시 읽기/쓰기 권한을 조정하세요.</p>
+            </div>
+            <div className={styles.buttonRow}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={handleResetPermissionsToTemplate}
+                disabled={permissionTemplatesLoading}
+              >
+                역할 템플릿으로 초기화
+              </button>
+            </div>
+          </div>
+
+          {permissionTemplatesError && (
+            <div className={`${styles.feedback} ${styles.feedbackError}`}>{permissionTemplatesError}</div>
+          )}
+
+          <div className={styles.permissionTableWrapper}>
+            <table className={styles.permissionTable}>
+              <thead>
+                <tr>
+                  <th>리소스</th>
+                  <th>읽기</th>
+                  <th>쓰기</th>
+                </tr>
+              </thead>
+              <tbody>
+                {userForm.permissions.map((permission) => (
+                  <tr key={permission.resource}>
+                    <td>{RESOURCE_LABELS[permission.resource] ?? permission.resource}</td>
+                    <td>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={permission.read}
+                          onChange={(event) =>
+                            handlePermissionToggle(permission.resource, 'read', event.target.checked)
+                          }
+                        />
+                        읽기 허용
+                      </label>
+                    </td>
+                    <td>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={permission.write}
+                          onChange={(event) =>
+                            handlePermissionToggle(permission.resource, 'write', event.target.checked)
+                          }
+                        />
+                        쓰기 허용
+                      </label>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {userFormError && <p className={styles.errorText}>{userFormError}</p>}
+        </form>
+      </Modal>
     </div>
   );
 }

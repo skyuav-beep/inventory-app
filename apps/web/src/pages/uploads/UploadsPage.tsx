@@ -8,6 +8,7 @@ import {
   UploadJobItem,
   UploadStatus,
 } from '../../services/uploadService';
+import { downloadCsvTemplate } from '../../lib/downloadTemplate';
 import styles from './UploadsPage.module.css';
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
@@ -146,6 +147,20 @@ export function UploadsPage() {
     void loadJobItems(jobId);
   };
 
+  const handleDownloadInboundTemplate = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsvTemplate('inbounds-template.csv', ['code', 'quantity', 'date', 'note'], [
+      ['SKU-0001', '10', today, '입고 메모'],
+    ]);
+  };
+
+  const handleDownloadOutboundTemplate = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsvTemplate('outbounds-template.csv', ['code', 'quantity', 'date', 'note'], [
+      ['SKU-0002', '5', today, '출고 메모'],
+    ]);
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -154,10 +169,10 @@ export function UploadsPage() {
           <p>입/출고 데이터를 Excel 또는 CSV로 업로드하여 대량 등록하세요.</p>
         </div>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.secondaryButton}>
+          <button type="button" className={styles.secondaryButton} onClick={handleDownloadInboundTemplate}>
             입고 템플릿 다운로드
           </button>
-          <button type="button" className={styles.secondaryButton}>
+          <button type="button" className={styles.secondaryButton} onClick={handleDownloadOutboundTemplate}>
             출고 템플릿 다운로드
           </button>
         </div>

@@ -1,17 +1,26 @@
 import { ConflictException, Injectable } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { AuditAction, Prisma, Resource, Role } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { PermissionsService } from '../permissions/permissions.service';
 import { UserEntity, toUserEntity } from './entities/user.entity';
 import { UserWithPermissions } from './types/user-with-permissions';
 import { CreateUserDto } from './dto/create-user.dto';
+import { AuditService } from '../audit/audit.service';
+import { ActiveUserData } from '../auth/types/active-user-data';
+
+interface AuditContext {
+  actor?: ActiveUserData | null;
+  ip?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissionsService: PermissionsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findByEmail(email: string): Promise<UserWithPermissions | null> {
@@ -76,7 +85,7 @@ export class UsersService {
     };
   }
 
-  async createUser(payload: CreateUserDto): Promise<UserEntity> {
+  async createUser(payload: CreateUserDto, context?: AuditContext): Promise<UserEntity> {
     const role = payload.role ?? Role.operator;
     const hashedPassword = await hash(payload.password, 12);
 
@@ -97,7 +106,19 @@ export class UsersService {
         include: { permissions: true },
       });
 
-      return toUserEntity(user);
+      const entity = toUserEntity(user);
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.settings,
+        action: AuditAction.create,
+        entityId: entity.id,
+        payload: this.toJsonValue({ email: payload.email, role: payload.role }),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
+
+      return entity;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -107,6 +128,18 @@ export class UsersService {
       }
 
       throw error;
+    }
+  }
+
+  private toJsonValue(value: unknown) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value)) as Prisma.JsonValue;
+    } catch {
+      return undefined;
     }
   }
 }

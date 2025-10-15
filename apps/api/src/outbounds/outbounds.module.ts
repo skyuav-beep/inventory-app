@@ -5,9 +5,10 @@ import { PermissionsModule } from '../permissions/permissions.module';
 import { OutboundsController } from './outbounds.controller';
 import { OutboundsService } from './outbounds.service';
 import { AlertsModule } from '../alerts/alerts.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, PermissionsModule, AlertsModule],
+  imports: [PrismaModule, ProductsModule, PermissionsModule, AlertsModule, AuditModule],
   controllers: [OutboundsController],
   providers: [OutboundsService],
   exports: [OutboundsService],

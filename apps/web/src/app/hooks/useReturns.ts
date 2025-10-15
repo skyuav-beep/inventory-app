@@ -38,6 +38,7 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<UseReturnsFilters>(initialFilters);
   const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
+  const [refreshIndex, setRefreshIndex] = useState(0);
 
   const loadReturns = useCallback(
     async (params: FetchReturnsParams) => {
@@ -68,7 +69,7 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
     };
 
     void loadReturns(params);
-  }, [filters.status, loadReturns, page]);
+  }, [filters.status, loadReturns, page, refreshIndex]);
 
   useEffect(() => {
     const filtered = rawItems.filter((item) => {
@@ -112,6 +113,10 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
     };
   }, [items]);
 
+  const refresh = useCallback(() => {
+    setRefreshIndex((index) => index + 1);
+  }, []);
+
   return {
     items,
     pagination,
@@ -121,7 +126,7 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
     setSearch,
     setStatus,
     setPage,
+    refresh,
     summary,
   };
 }
-

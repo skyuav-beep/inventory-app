@@ -36,5 +36,5 @@
 - [x] GitHub Actions CI (lint/format) 구성
 - [x] OpenAPI 명세 최신화 및 `docs/` 내 배포 (`docs/openapi.yaml`)
 - [x] 배포 가이드 문서화 (`docs/deployment.md`)
-- [ ] README 및 환경 변수 가이드 정비
-- [ ] 운영 체크리스트(백업, 모니터링, 장애 대응) 작성
+- [x] README 및 환경 변수 가이드 정비
+- [x] 운영 체크리스트(백업, 모니터링, 장애 대응) 작성

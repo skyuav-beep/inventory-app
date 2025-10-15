@@ -10,6 +10,7 @@ import { AlertPolicyDecision, AlertPolicyService } from './alert-policy.service'
 import { SettingsService } from '../settings/settings.service';
 import { TelegramService } from './telegram/telegram.service';
 import { ProductEntity } from '../products/entities/product.entity';
+import { ALERT_RETRY_DEFAULT_INTERVAL_MS, ALERT_RETRY_MAX_ATTEMPTS } from './constants';
 
 export interface AlertSendResult {
   decision: AlertPolicyDecision;
@@ -205,18 +206,86 @@ export class AlertsService {
     decision: AlertPolicyDecision,
     payload: { message: string; channel: Channel; level: AlertLevel; productId?: string },
   ): Promise<void> {
+    const retryAt = this.resolveNextAttempt(decision);
+
     await this.prisma.alert.create({
       data: {
         productId: payload.productId,
         level: payload.level,
         channel: payload.channel,
-        message: `[DEFERRED] ${payload.message} (reason: ${decision.reason})`,
+        message: payload.message,
         sentAt: null,
-        dedupKey: `deferred-${Date.now()}`,
+        dedupKey: this.buildDeferredDedupKey(payload.productId),
+        retryAt,
+        retryReason: decision.reason,
+      },
+    });
+  }
+
+  async processPendingAlert(alertId: string): Promise<'sent' | 'rescheduled' | 'skipped' | 'aborted'> {
+    const alert = await this.prisma.alert.findUnique({
+      where: { id: alertId },
+      include: { product: true },
+    });
+
+    if (!alert) {
+      this.logger.warn(`재시도 대상 알림(ID: ${alertId})을 찾을 수 없습니다.`);
+      return 'skipped';
+    }
+
+    if (alert.sentAt) {
+      return 'skipped';
+    }
+
+    if (alert.retryCount >= ALERT_RETRY_MAX_ATTEMPTS) {
+      await this.prisma.alert.update({
+        where: { id: alertId },
+        data: {
+          retryAt: null,
+          retryReason: 'aborted',
+        },
+      });
+      this.logger.warn(`알림(ID: ${alertId})이 최대 재시도 횟수를 초과하여 중단되었습니다.`);
+      return 'aborted';
+    }
+
+    const decision = await this.policy.decideSend({
+      productId: alert.productId ?? undefined,
+      channel: alert.channel,
+      level: alert.level,
+    });
+
+    if (!decision.canSend) {
+      const retryAt = this.resolveNextAttempt(decision);
+
+      await this.prisma.alert.update({
+        where: { id: alertId },
+        data: {
+          retryAt,
+          retryReason: decision.reason,
+          retryCount: { increment: 1 },
+        },
+      });
+
+      return 'rescheduled';
+    }
+
+    const settings = await this.settingsService.getRawSettings();
+    const message = alert.message;
+
+    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, message);
+
+    await this.prisma.alert.update({
+      where: { id: alertId },
+      data: {
+        sentAt: new Date(),
+        retryAt: null,
+        retryReason: null,
+        retryCount: { increment: 1 },
       },
     });
 
-    // TODO: enqueue background job for retry using decision.nextAttemptAt.
+    return 'sent';
   }
 
   private async deliverViaTelegram(
@@ -250,5 +319,17 @@ export class AlertsService {
         }),
       ),
     );
+  }
+
+  private resolveNextAttempt(decision: AlertPolicyDecision): Date {
+    if (decision.nextAttemptAt) {
+      return decision.nextAttemptAt;
+    }
+
+    return new Date(Date.now() + ALERT_RETRY_DEFAULT_INTERVAL_MS);
+  }
+
+  private buildDeferredDedupKey(productId?: string): string {
+    return `deferred-${productId ?? 'general'}-${Date.now()}`;
   }
 }

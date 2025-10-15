@@ -31,26 +31,29 @@ npm install
 
 ### 루트 `.env`
 
-`.env.example`을 복사하여 다음 항목을 채웁니다.
+`.env.example`을 복사해 다음 항목을 채웁니다. 루트에 정의된 값은 NestJS API에서 기본값으로 사용됩니다.
 
 ```ini
-DATABASE_URL=postgresql://user:password@localhost:5432/inventory
-JWT_SECRET=your-jwt-secret
-TELEGRAM_BOT_TOKEN=optional-telegram-token
-TELEGRAM_CHAT_ID=optional-chat-id
+DATABASE_URL=postgresql://inventory:inventory@localhost:5432/inventory
+JWT_SECRET=change-me
+# 선택 사항: 텔레그램 초기 설정
+TELEGRAM_BOT_TOKEN=
+TELEGRAM_CHAT_ID=
+# 시드 관리자 계정
 ADMIN_SEED_EMAIL=admin@example.com
 ADMIN_SEED_NAME=Admin
 ADMIN_SEED_PASSWORD=ChangeMe123!
 ```
 
-> **참고**: API 전용 환경 변수는 `apps/api/.env.example`을 참고해 동일하게 설정할 수 있습니다. 루트와 API 환경 변수가 동시에 정의되면 API 서비스에서 우선 사용됩니다.
+API 전용 변수는 `apps/api/.env.example`에서도 동일하게 정의되어 있으므로, 서비스를 개별적으로 실행할 때 필요한 값만 덮어쓸 수 있습니다.
 
-### 텔레그램 알림 관련 변수
+### 텔레그램 알림
 
-- `TELEGRAM_BOT_TOKEN`: BotFather로 발급한 봇 토큰
-- `TELEGRAM_CHAT_ID`: 기본 알림 대상(단일 ID). UI에서 다중 타깃을 관리할 수 있습니다.
+- `TELEGRAM_BOT_TOKEN`: BotFather가 발급한 봇 토큰
+- `TELEGRAM_CHAT_ID`: 기본 알림 채널/DM. UI에서 다중 타깃을 등록하면 이 값은 초기 대상만 의미합니다.
+- `ALERT_COOLDOWN_MINUTES`, `QUIET_HOURS`: 알림 쿨다운 및 야간 억제 정책(기본 60분, `22-07`)
 
-코드에서는 알림 설정 API를 통해 다중 챗 ID와 쿨다운/조용 시간 등을 관리합니다.
+위 값은 `/settings/notifications/telegram` API/화면에서 수정할 수 있으며, 수정 결과는 DB `notification_settings`에 저장됩니다.
 
 ## 5. 데이터베이스 마이그레이션 & 시드
 
@@ -83,6 +86,25 @@ npm run dev -- --host 0.0.0.0
 
 - 기본 포트: `5173`
 - API 호출 시 `VITE_API_BASE_URL` 환경 변수를 확인하세요.
+
+### Docker Compose (선택)
+
+개발 환경을 컨테이너로 실행하려면 루트 `.env`를 준비한 뒤 `infra/docker-compose.yml`을 사용하세요.
+
+```bash
+cp .env.example .env          # 필요 시 값 수정 (DB, JWT 등)
+cd infra
+docker compose up --build
+```
+
+- `db`: PostgreSQL 15 (포트 5443 → 컨테이너 5432)
+- `api`: NestJS 서버 (`npm run start:dev`, 포트 3000)
+- `web`: Vite 개발 서버 (포트 5173, `VITE_API_BASE_URL` 기본값 `http://api:3000`)
+- `nginx`: reverse proxy (포트 8080 → web/api 라우팅)
+
+루트 `.env` 값을 자동으로 로드하며, 도커 내부 주소가 필요한 경우 `VITE_API_BASE_URL=http://api:3000` 등으로 덮어쓸 수 있습니다.
+
+프로덕션에서는 개발용 명령(`npm run start:dev`, `npm run dev`) 대신 빌드된 산출물을 실행하도록 Dockerfile/compose 커맨드를 조정하고, `NODE_ENV=production` 및 실제 데이터베이스 접속 정보를 `.env`에 반영하세요.
 
 ## 7. 테스트
 

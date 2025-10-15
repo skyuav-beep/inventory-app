@@ -1,7 +1,9 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useReturns } from '../../app/hooks/useReturns';
-import { ReturnStatus } from '../../services/returnService';
+import { ReturnStatus, createReturn } from '../../services/returnService';
+import { ProductListItem, fetchProducts } from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
+import { Modal } from '../../components/ui/Modal';
 import styles from './ReturnsPage.module.css';
 
 const statusOptions: Array<{ value: ReturnStatus | 'all'; label: string }> = [
@@ -15,15 +17,38 @@ const statusLabels: Record<ReturnStatus, string> = {
   completed: '완료',
 };
 
+interface ReturnFormState {
+  productId: string;
+  quantity: string;
+  reason: string;
+  status: ReturnStatus;
+  dateReturn: string;
+}
+
+const createDefaultReturnForm = (): ReturnFormState => ({
+  productId: '',
+  quantity: '',
+  reason: '',
+  status: 'pending',
+  dateReturn: new Date().toISOString().slice(0, 10),
+});
+
 export function ReturnsPage() {
   const { hasPermission } = useAuth();
   const canRegisterReturn = hasPermission('returns', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setStatus, setPage, summary } = useReturns({
+  const { items, pagination, loading, error, filters, setSearch, setStatus, setPage, refresh, summary } = useReturns({
     search: '',
     status: 'all',
   });
 
   const [searchInput, setSearchInput] = useState(filters.search);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [formState, setFormState] = useState<ReturnFormState>(() => createDefaultReturnForm());
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [productOptions, setProductOptions] = useState<ProductListItem[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
 
   useEffect(() => {
     setSearchInput(filters.search);
@@ -67,6 +92,102 @@ export function ReturnsPage() {
     }
   };
 
+  const loadProductOptions = useCallback(async () => {
+    try {
+      setOptionsLoading(true);
+      setOptionsError(null);
+      const response = await fetchProducts({ page: 1, size: 200, disabled: false });
+      setProductOptions(response.data);
+    } catch (err) {
+      console.error(err);
+      setOptionsError('제품 목록을 불러오지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setOptionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProductOptions();
+  }, [loadProductOptions]);
+
+  useEffect(() => {
+    if (isModalOpen && productOptions.length === 0 && !optionsLoading && !optionsError) {
+      void loadProductOptions();
+    }
+  }, [isModalOpen, productOptions.length, optionsLoading, optionsError, loadProductOptions]);
+
+  const openModal = () => {
+    setFormState(createDefaultReturnForm());
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (submitting) {
+      return;
+    }
+    setModalOpen(false);
+  };
+
+  const handleFormChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    if (name === 'status') {
+      setFormState((prev) => ({
+        ...prev,
+        status: value as ReturnStatus,
+      }));
+      return;
+    }
+
+    setFormState((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!formState.productId) {
+      setFormError('제품을 선택해 주세요.');
+      return;
+    }
+
+    const quantityValue = Number(formState.quantity);
+    if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
+      setFormError('반품 수량은 1 이상의 정수여야 합니다.');
+      return;
+    }
+
+    if (!formState.reason.trim()) {
+      setFormError('반품 사유를 입력해 주세요.');
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await createReturn({
+        productId: formState.productId,
+        quantity: quantityValue,
+        reason: formState.reason.trim(),
+        status: formState.status,
+        dateReturn: formState.dateReturn ? new Date(formState.dateReturn).toISOString() : undefined,
+      });
+
+      setModalOpen(false);
+      setFormState(createDefaultReturnForm());
+      setPage(1);
+      refresh();
+    } catch (err) {
+      console.error(err);
+      setFormError(err instanceof Error ? err.message : '반품 등록 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.headerRow}>
@@ -75,7 +196,7 @@ export function ReturnsPage() {
           <p>반품 요청 상태를 확인하고 추가 검토 작업을 진행하세요.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.primaryButton} disabled={!canRegisterReturn}>
+          <button type="button" className={styles.primaryButton} disabled={!canRegisterReturn} onClick={openModal}>
             반품 등록
           </button>
         </div>
@@ -192,6 +313,115 @@ export function ReturnsPage() {
           다음
         </button>
       </div>
+
+      <Modal
+        open={isModalOpen}
+        title="반품 등록"
+        onClose={closeModal}
+        footer={
+          <>
+            <button
+              type="button"
+              className={`${styles.modalFooterButton} ${styles.modalFooterButtonSecondary}`}
+              onClick={closeModal}
+              disabled={submitting}
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              form="return-create-form"
+              className={`${styles.modalFooterButton} ${styles.modalFooterButtonPrimary}`}
+              disabled={submitting || optionsLoading || !!optionsError}
+            >
+              {submitting ? '등록 중...' : '등록'}
+            </button>
+          </>
+        }
+      >
+        <form id="return-create-form" className={styles.modalForm} onSubmit={handleSubmit}>
+          <div className={styles.formField}>
+            <label htmlFor="return-product">제품 선택</label>
+            <select
+              id="return-product"
+              name="productId"
+              value={formState.productId}
+              onChange={handleFormChange}
+              className={styles.formSelect}
+              disabled={optionsLoading}
+              required
+            >
+              <option value="">{optionsLoading ? '불러오는 중...' : '제품을 선택하세요'}</option>
+              {productOptions.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} ({product.code})
+                  {product.unit ? ` · ${product.unit}` : ''}
+                  {product.specification ? ` · ${product.specification}` : ''}
+                </option>
+              ))}
+            </select>
+          {optionsError && (
+            <div className={styles.errorText}>
+              <span>{optionsError}</span>
+              <button type="button" onClick={loadProductOptions} className={styles.retryButton}>
+                다시 시도
+              </button>
+            </div>
+          )}
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="return-quantity">반품 수량</label>
+            <input
+              id="return-quantity"
+              name="quantity"
+              type="number"
+              min={1}
+              value={formState.quantity}
+              onChange={handleFormChange}
+              className={styles.formInput}
+              placeholder="1 이상의 정수"
+              required
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="return-status">처리 상태</label>
+            <select
+              id="return-status"
+              name="status"
+              value={formState.status}
+              onChange={handleFormChange}
+              className={styles.formSelect}
+            >
+              <option value="pending">대기</option>
+              <option value="completed">완료</option>
+            </select>
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="return-date">반품일</label>
+            <input
+              id="return-date"
+              name="dateReturn"
+              type="date"
+              value={formState.dateReturn}
+              onChange={handleFormChange}
+              className={styles.formInput}
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="return-reason">반품 사유</label>
+            <textarea
+              id="return-reason"
+              name="reason"
+              value={formState.reason}
+              onChange={handleFormChange}
+              className={styles.formTextarea}
+              placeholder="반품 사유를 입력하세요"
+              required
+            />
+          </div>
+          {formError && <p className={styles.errorText}>{formError}</p>}
+        </form>
+      </Modal>
     </div>
   );
 }

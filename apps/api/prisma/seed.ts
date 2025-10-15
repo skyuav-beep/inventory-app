@@ -40,6 +40,8 @@ async function main() {
       code: 'SKU-001',
       name: '샘플 제품',
       description: '초기 재고 확인용 샘플 아이템',
+      specification: '10x20cm / Blue',
+      unit: 'EA',
       safetyStock: 10,
       totalIn: 50,
       remain: 50,

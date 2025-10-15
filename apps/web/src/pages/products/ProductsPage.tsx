@@ -1,7 +1,10 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useProducts } from '../../app/hooks/useProducts';
-import { ProductStatus } from '../../services/productService';
+import type { ProductListItem } from '../../services/productService';
+import { ProductStatus, createProduct, updateProduct } from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
+import { Modal } from '../../components/ui/Modal';
+import { downloadCsvTemplate } from '../../lib/downloadTemplate';
 import styles from './ProductsPage.module.css';
 
 const statusOptions: Array<{ value: ProductStatus | 'all'; label: string }> = [
@@ -17,14 +20,56 @@ const statusLabels: Record<ProductStatus, string> = {
   low: '부족',
 };
 
+interface ProductFormState {
+  code: string;
+  name: string;
+  description: string;
+  specification: string;
+  unit: string;
+  safetyStock: string;
+  disabled: boolean;
+}
+
+const generateProductCode = () => `SKU-${Date.now().toString(36).toUpperCase()}`;
+
+const createDefaultProductForm = (): ProductFormState => ({
+  code: generateProductCode(),
+  name: '',
+  description: '',
+  specification: '',
+  unit: 'EA',
+  safetyStock: '',
+  disabled: false,
+});
+
 export function ProductsPage() {
   const { hasPermission } = useAuth();
   const canManageProducts = hasPermission('products', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setStatus, setPage, summary } = useProducts({
+  const {
+    items,
+    pagination,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setStatus,
+    setIncludeDisabled,
+    setPage,
+    refresh,
+    summary,
+  } = useProducts({
     search: '',
     status: 'all',
+    includeDisabled: false,
   });
   const [searchInput, setSearchInput] = useState(filters.search);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [productForm, setProductForm] = useState<ProductFormState>(() => createDefaultProductForm());
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
+  const isEditing = editingProductId !== null;
 
   useEffect(() => {
     setSearchInput(filters.search);
@@ -69,6 +114,150 @@ export function ProductsPage() {
     }
   };
 
+  const openCreateModal = () => {
+    setEditingProductId(null);
+    setProductForm(createDefaultProductForm());
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = useCallback((product: ProductListItem) => {
+    setProductForm({
+      code: product.code,
+      name: product.name,
+      description: product.description ?? '',
+      specification: product.specification ?? '',
+      unit: product.unit ?? 'EA',
+      safetyStock: product.safetyStock.toString(),
+      disabled: product.disabled,
+    });
+    setFormError(null);
+    setEditingProductId(product.id);
+    setModalOpen(true);
+  }, []);
+
+  const closeModal = () => {
+    if (submitting) {
+      return;
+    }
+    setEditingProductId(null);
+    setModalOpen(false);
+  };
+
+  const regenerateCode = () => {
+    setProductForm((prev) => ({
+      ...prev,
+      code: generateProductCode(),
+    }));
+  };
+
+  const handleProductFormChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    if (name === 'code') {
+      return;
+    }
+    setProductForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleDisabledToggle = (event: ChangeEvent<HTMLInputElement>) => {
+    setProductForm((prev) => ({
+      ...prev,
+      disabled: event.target.checked,
+    }));
+  };
+
+  const handleProductSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!productForm.code.trim() || !productForm.name.trim()) {
+      setFormError('제품 코드와 제품명을 입력해 주세요.');
+      return;
+    }
+
+    let safetyStockValue: number | undefined;
+    if (productForm.safetyStock.trim().length > 0) {
+      const parsed = Number(productForm.safetyStock.trim());
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setFormError('안전 재고 수량은 0 이상의 숫자를 입력해야 합니다.');
+        return;
+      }
+      safetyStockValue = parsed;
+    }
+
+    const specificationValue = productForm.specification.trim() || undefined;
+    const unitValue = productForm.unit.trim() || 'EA';
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      if (isEditing && editingProductId) {
+        await updateProduct(editingProductId, {
+          name: productForm.name.trim(),
+          description: productForm.description.trim() ? productForm.description.trim() : undefined,
+          specification: specificationValue,
+          unit: unitValue,
+          safetyStock: safetyStockValue,
+          disabled: productForm.disabled,
+        });
+      } else {
+        await createProduct({
+          code: productForm.code.trim(),
+          name: productForm.name.trim(),
+          description: productForm.description.trim() ? productForm.description.trim() : undefined,
+          specification: specificationValue,
+          unit: unitValue,
+          safetyStock: safetyStockValue,
+          disabled: productForm.disabled,
+        });
+        setPage(1);
+      }
+
+      refresh();
+      setModalOpen(false);
+      setEditingProductId(null);
+      setProductForm(createDefaultProductForm());
+    } catch (err) {
+      console.error(err);
+      setFormError(err instanceof Error ? err.message : '제품 저장 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (product: ProductListItem) => {
+    openEditModal(product);
+  };
+
+  const tableColumnCount = canManageProducts ? 11 : 10;
+
+  const handleToggleProductState = async (product: ProductListItem) => {
+    if (!canManageProducts || togglingProductId) {
+      return;
+    }
+    setFormError(null);
+    setTogglingProductId(product.id);
+    try {
+      await updateProduct(product.id, {
+        disabled: !product.disabled,
+      });
+      refresh();
+    } catch (err) {
+      console.error(err);
+      setFormError(err instanceof Error ? err.message : '제품 상태 변경 중 오류가 발생했습니다.');
+    } finally {
+      setTogglingProductId(null);
+    }
+  };
+
+  const handleTemplateDownload = () => {
+    downloadCsvTemplate('products-template.csv', ['code', 'name', 'description', 'specification', 'unit', 'safetyStock'], [
+      ['SKU-0001', '샘플 제품', '', '', 'EA', '10'],
+    ]);
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.headerRow}>
@@ -77,10 +266,15 @@ export function ProductsPage() {
           <p>제품 검색 및 안전재고 관리를 위한 화면입니다.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} disabled={!canManageProducts}>
+          <button type="button" className={styles.secondaryButton} onClick={handleTemplateDownload}>
             템플릿 다운로드
           </button>
-          <button type="button" className={styles.primaryButton} disabled={!canManageProducts}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={!canManageProducts}
+            onClick={openCreateModal}
+          >
             제품 등록
           </button>
         </div>
@@ -107,6 +301,11 @@ export function ProductsPage() {
           <p className={styles.summaryValue}>{summary.normal.toLocaleString()} 개</p>
           <p className={styles.summarySubtitle}>안정적인 재고</p>
         </article>
+        <article className={styles.summaryCard}>
+          <p className={styles.summaryTitle}>사용 중지</p>
+          <p className={styles.summaryValue}>{summary.disabled.toLocaleString()} 개</p>
+          <p className={styles.summarySubtitle}>포함된 목록 기준</p>
+        </article>
       </section>
 
       <div className={styles.toolbar}>
@@ -129,6 +328,14 @@ export function ProductsPage() {
               ))}
             </select>
           </div>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={filters.includeDisabled}
+              onChange={(event) => setIncludeDisabled(event.target.checked)}
+            />
+            사용 중지 포함
+          </label>
         </div>
         <div className={styles.meta}>
           <span>
@@ -146,21 +353,25 @@ export function ProductsPage() {
             <tr>
               <th>제품코드</th>
               <th>제품명</th>
+              <th>규격</th>
+              <th>단위</th>
               <th>안전재고</th>
               <th>현재 재고</th>
               <th>총 입고</th>
               <th>총 출고</th>
               <th>상태</th>
+              <th>사용 여부</th>
+              {canManageProducts && <th>동작</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr className={styles.loadingRow}>
-                <td colSpan={7}>제품 정보를 불러오는 중입니다...</td>
+                <td colSpan={tableColumnCount}>제품 정보를 불러오는 중입니다...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr className={styles.emptyRow}>
-                <td colSpan={7}>조건에 맞는 제품이 없습니다.</td>
+                <td colSpan={tableColumnCount}>조건에 맞는 제품이 없습니다.</td>
               </tr>
             ) : (
               items.map((product) => {
@@ -172,7 +383,7 @@ export function ProductsPage() {
                       : styles.statusNormal;
 
                 return (
-                  <tr key={product.id}>
+                  <tr key={product.id} className={product.disabled ? styles.disabledRow : undefined}>
                     <td>{product.code}</td>
                     <td>
                       <div className={styles.productNameCell}>
@@ -180,6 +391,8 @@ export function ProductsPage() {
                         <span className={styles.productCode}>{product.code}</span>
                       </div>
                     </td>
+                    <td>{product.specification ?? '-'}</td>
+                    <td>{product.unit}</td>
                     <td>{product.safetyStock.toLocaleString()}</td>
                     <td>{product.remain.toLocaleString()}</td>
                     <td>{product.totalIn.toLocaleString()}</td>
@@ -187,6 +400,30 @@ export function ProductsPage() {
                     <td>
                       <span className={`${styles.status} ${statusClass}`}>{statusLabels[product.status]}</span>
                     </td>
+                    <td>
+                      <span className={product.disabled ? styles.disabledBadge : styles.activeBadge}>
+                        {product.disabled ? '사용 중지' : '사용 중'}
+                      </span>
+                    </td>
+                    {canManageProducts && (
+                      <td className={styles.tableActions}>
+                        <button
+                          type="button"
+                          className={styles.tableActionButton}
+                          onClick={() => handleEditClick(product)}
+                        >
+                          수정
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.tableActionButton}
+                          onClick={() => handleToggleProductState(product)}
+                          disabled={togglingProductId === product.id}
+                        >
+                          {product.disabled ? (togglingProductId === product.id ? '해제 중...' : '사용 재개') : togglingProductId === product.id ? '중지 중...' : '사용 중지'}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })
@@ -206,6 +443,118 @@ export function ProductsPage() {
           다음
         </button>
       </div>
+
+      <Modal
+        open={isModalOpen}
+        title={isEditing ? '제품 수정' : '제품 등록'}
+        onClose={closeModal}
+        footer={
+          <>
+            <button
+              type="button"
+              className={`${styles.modalFooterButton} ${styles.modalFooterButtonSecondary}`}
+              onClick={closeModal}
+              disabled={submitting}
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              form="product-form"
+              className={`${styles.modalFooterButton} ${styles.modalFooterButtonPrimary}`}
+              disabled={submitting}
+            >
+              {submitting ? (isEditing ? '수정 중...' : '등록 중...') : isEditing ? '수정' : '등록'}
+            </button>
+          </>
+        }
+      >
+        <form id="product-form" className={styles.modalForm} onSubmit={handleProductSubmit}>
+          <div className={styles.formField}>
+            <div className={styles.labelRow}>
+              <label htmlFor="product-code">제품 코드</label>
+              {!isEditing && (
+                <button type="button" className={styles.linkButton} onClick={regenerateCode} disabled={submitting}>
+                  코드 재생성
+                </button>
+              )}
+            </div>
+            <input
+              id="product-code"
+              name="code"
+              value={productForm.code}
+              className={`${styles.formInput} ${styles.readonlyInput}`}
+              readOnly
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="product-name">제품명</label>
+            <input
+              id="product-name"
+              name="name"
+              value={productForm.name}
+              onChange={handleProductFormChange}
+              className={styles.formInput}
+              placeholder="제품명을 입력하세요"
+              required
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="product-description">제품 설명</label>
+            <textarea
+              id="product-description"
+              name="description"
+              value={productForm.description}
+              onChange={handleProductFormChange}
+              className={styles.formTextarea}
+              placeholder="설명을 입력하세요 (선택)"
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="product-specification">규격</label>
+            <input
+              id="product-specification"
+              name="specification"
+              value={productForm.specification}
+              onChange={handleProductFormChange}
+              className={styles.formInput}
+              placeholder="예: 10x20cm / 500ml"
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="product-unit">단위</label>
+            <input
+              id="product-unit"
+              name="unit"
+              value={productForm.unit}
+              onChange={handleProductFormChange}
+              className={styles.formInput}
+              placeholder="예: EA, BOX"
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="product-safety">안전 재고 수량</label>
+            <input
+              id="product-safety"
+              name="safetyStock"
+              type="number"
+              min={0}
+              value={productForm.safetyStock}
+              onChange={handleProductFormChange}
+              className={styles.formInput}
+              placeholder="0 이상 정수"
+            />
+          </div>
+          <div className={styles.formFieldInline}>
+            <label className={styles.checkboxLabelInline}>
+              <input type="checkbox" checked={productForm.disabled} onChange={handleDisabledToggle} />
+              사용 중지
+            </label>
+            <span className={styles.inlineHelpText}>사용 중지 시 신규 입출고/반품 등록이 제한됩니다.</span>
+          </div>
+          {formError && <p className={styles.errorText}>{formError}</p>}
+        </form>
+      </Modal>
     </div>
   );
 }

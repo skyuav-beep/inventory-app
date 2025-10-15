@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AuditAction, Prisma, Resource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockResult, ProductsService } from '../products/products.service';
 import { CreateOutboundDto } from './dto/create-outbound.dto';
@@ -9,6 +9,14 @@ import { OutboundEntity, toOutboundEntity } from './entities/outbound.entity';
 import { AlertsService } from '../alerts/alerts.service';
 import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
 import { ProductEntity } from '../products/entities/product.entity';
+import { AuditService } from '../audit/audit.service';
+import { ActiveUserData } from '../auth/types/active-user-data';
+
+interface AuditContext {
+  actor?: ActiveUserData | null;
+  ip?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class OutboundsService {
@@ -16,6 +24,7 @@ export class OutboundsService {
     private readonly prisma: PrismaService,
     private readonly productsService: ProductsService,
     private readonly alertsService: AlertsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findAll(query: OutboundListQueryDto): Promise<{ data: OutboundEntity[]; total: number }> {
@@ -46,7 +55,7 @@ export class OutboundsService {
     };
   }
 
-  async create(payload: CreateOutboundDto): Promise<OutboundEntity> {
+  async create(payload: CreateOutboundDto, context?: AuditContext): Promise<OutboundEntity> {
     const dateOut = payload.dateOut ?? new Date();
 
     const lowStockCandidates = new Map<string, ProductEntity>();
@@ -60,6 +69,10 @@ export class OutboundsService {
 
       if (product.remain < payload.quantity) {
         throw new BadRequestException('출고 수량이 재고보다 많습니다.');
+      }
+
+      if (product.disabled) {
+        throw new BadRequestException('사용 중지된 제품은 출고할 수 없습니다.');
       }
 
       const outbound = await tx.outbound.create({
@@ -85,6 +98,16 @@ export class OutboundsService {
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.outbounds,
+      action: AuditAction.create,
+      entityId: result.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return result;
   }
 
@@ -101,7 +124,7 @@ export class OutboundsService {
     return toOutboundEntity(outbound);
   }
 
-  async update(id: string, payload: UpdateOutboundDto): Promise<OutboundEntity> {
+  async update(id: string, payload: UpdateOutboundDto, context?: AuditContext): Promise<OutboundEntity> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -133,10 +156,18 @@ export class OutboundsService {
         if (swappedProduct.remain < nextQuantity) {
           throw new BadRequestException('출고 수량이 재고보다 많습니다.');
         }
+
+        if (swappedProduct.disabled) {
+          throw new BadRequestException('사용 중지된 제품은 출고할 수 없습니다.');
+        }
       } else {
         const diff = nextQuantity - existing.quantity;
         if (diff > 0 && targetProduct.remain < diff) {
           throw new BadRequestException('출고 수량이 재고보다 많습니다.');
+        }
+
+        if (targetProduct.disabled) {
+          throw new BadRequestException('사용 중지된 제품은 출고할 수 없습니다.');
         }
       }
 
@@ -188,10 +219,20 @@ export class OutboundsService {
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.outbounds,
+      action: AuditAction.update,
+      entityId: result.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return result;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, context?: AuditContext): Promise<void> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     await this.prisma.$transaction(async (tx) => {
@@ -211,6 +252,16 @@ export class OutboundsService {
         tx,
       );
       this.collectLowStockCandidate(lowStockCandidates, adjustResult);
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.outbounds,
+        action: AuditAction.delete,
+        entityId: outbound.id,
+        payload: this.toJsonValue(outbound),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
     });
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
@@ -229,6 +280,18 @@ export class OutboundsService {
 
     for (const product of store.values()) {
       await this.alertsService.notifyLowStock(product);
+    }
+  }
+
+  private toJsonValue(value: unknown) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value)) as Prisma.JsonValue;
+    } catch {
+      return undefined;
     }
   }
 }

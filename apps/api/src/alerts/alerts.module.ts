@@ -5,11 +5,12 @@ import { AlertsController } from './alerts.controller';
 import { AlertsService } from './alerts.service';
 import { AlertPolicyService } from './alert-policy.service';
 import { TelegramService } from './telegram/telegram.service';
+import { AlertRetryWorker } from './worker/alert-retry.worker';
 
 @Module({
   imports: [PrismaModule, SettingsModule],
   controllers: [AlertsController],
-  providers: [AlertsService, AlertPolicyService, TelegramService],
+  providers: [AlertsService, AlertPolicyService, TelegramService, AlertRetryWorker],
   exports: [AlertsService],
 })
 export class AlertsModule {}

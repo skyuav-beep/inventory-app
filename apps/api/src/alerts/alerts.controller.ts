@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ActiveUser } from '../auth/decorators/active-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ActiveUserData } from '../auth/types/active-user-data';
@@ -30,6 +31,7 @@ export class AlertsController {
 
   @Post('test')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ alerts: { limit: 20, ttl: 60 } })
   async sendTest(@ActiveUser() activeUser: ActiveUserData) {
     const result = await this.alertsService.sendTestAlert(activeUser);
     return {
@@ -41,6 +43,7 @@ export class AlertsController {
 
   @Post('custom')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ alerts: { limit: 20, ttl: 60 } })
   async sendCustom(@Body() payload: SendCustomAlertDto, @ActiveUser() activeUser: ActiveUserData) {
     const result = await this.alertsService.sendCustomAlert(activeUser, payload.message);
     return {

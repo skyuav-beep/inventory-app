@@ -63,9 +63,8 @@ docker compose exec api npm run seed
 
 ## 배포 후 점검 체크리스트
 
-- [ ] API `/health` 혹은 기본 엔드포인트 응답 확인
+- [x] API `/health` 혹은 기본 엔드포인트 응답 확인
 - [ ] 관리자 로그인 및 주요 기능(제품 CRUD, 입출고 등록) 수동 테스트
 - [ ] OpenAPI 명세(`docs/openapi.yaml`) 최신 여부 확인 및 공유
 - [ ] 텔레그램 테스트 알림(`POST /alerts/test`) 발송 확인
 - [ ] DB 백업 스케줄 및 모니터링 알림 설정 검증
-

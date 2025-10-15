@@ -1,16 +1,41 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useInbounds } from '../../app/hooks/useInbounds';
 import { useAuth } from '../../hooks/useAuth';
+import { ProductListItem, fetchProducts } from '../../services/productService';
+import { createInbound } from '../../services/inboundService';
+import { Modal } from '../../components/ui/Modal';
+import { downloadCsvTemplate } from '../../lib/downloadTemplate';
 import styles from './InboundsPage.module.css';
+
+interface InboundFormState {
+  productId: string;
+  quantity: string;
+  dateIn: string;
+  note: string;
+}
+
+const createDefaultInboundForm = (): InboundFormState => ({
+  productId: '',
+  quantity: '',
+  dateIn: new Date().toISOString().slice(0, 10),
+  note: '',
+});
 
 export function InboundsPage() {
   const { hasPermission } = useAuth();
   const canRegisterInbound = hasPermission('inbounds', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setPage, summary } = useInbounds({
+  const { items, pagination, loading, error, filters, setSearch, setPage, refresh, summary } = useInbounds({
     search: '',
   });
 
   const [searchInput, setSearchInput] = useState(filters.search);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [formState, setFormState] = useState<InboundFormState>(() => createDefaultInboundForm());
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [productOptions, setProductOptions] = useState<ProductListItem[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
 
   useEffect(() => {
     setSearchInput(filters.search);
@@ -49,6 +74,92 @@ export function InboundsPage() {
     }
   };
 
+  const loadProductOptions = useCallback(async () => {
+    try {
+      setOptionsLoading(true);
+      setOptionsError(null);
+      const response = await fetchProducts({ page: 1, size: 200, disabled: false });
+      setProductOptions(response.data);
+    } catch (err) {
+      console.error(err);
+      setOptionsError('제품 목록을 불러오지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setOptionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProductOptions();
+  }, [loadProductOptions]);
+
+  useEffect(() => {
+    if (isModalOpen && productOptions.length === 0 && !optionsLoading && !optionsError) {
+      void loadProductOptions();
+    }
+  }, [isModalOpen, productOptions.length, optionsLoading, optionsError, loadProductOptions]);
+
+  const openModal = () => {
+    setFormState(createDefaultInboundForm());
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (submitting) {
+      return;
+    }
+    setModalOpen(false);
+  };
+
+  const handleFormChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target;
+    setFormState((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!formState.productId) {
+      setFormError('제품을 선택해 주세요.');
+      return;
+    }
+
+    const quantityValue = Number(formState.quantity);
+    if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
+      setFormError('입고 수량은 1 이상의 정수여야 합니다.');
+      return;
+    }
+
+    setSubmitting(true);
+    setFormError(null);
+
+    try {
+      await createInbound({
+        productId: formState.productId,
+        quantity: quantityValue,
+        dateIn: formState.dateIn ? new Date(formState.dateIn).toISOString() : undefined,
+        note: formState.note.trim() ? formState.note.trim() : undefined,
+      });
+
+      setModalOpen(false);
+      setFormState(createDefaultInboundForm());
+      setPage(1);
+      refresh();
+    } catch (err) {
+      console.error(err);
+      setFormError(err instanceof Error ? err.message : '입고 등록 중 오류가 발생했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleTemplateDownload = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCsvTemplate('inbounds-template.csv', ['code', 'quantity', 'date', 'note'], [['SKU-0001', '10', today, '메모']]);
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.headerRow}>
@@ -57,10 +168,15 @@ export function InboundsPage() {
           <p>입고 기록과 수량 추이를 확인하고 신규 입고를 등록하세요.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} disabled={!canRegisterInbound}>
+          <button type="button" className={styles.secondaryButton} onClick={handleTemplateDownload}>
             입고 템플릿
           </button>
-          <button type="button" className={styles.primaryButton} disabled={!canRegisterInbound}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={!canRegisterInbound}
+            onClick={openModal}
+          >
             입고 등록
           </button>
         </div>
@@ -160,6 +276,101 @@ export function InboundsPage() {
           다음
         </button>
       </div>
+
+      <Modal
+        open={isModalOpen}
+        title="입고 등록"
+        onClose={closeModal}
+        footer={
+          <>
+            <button
+              type="button"
+              className={`${styles.modalFooterButton} ${styles.modalFooterButtonSecondary}`}
+              onClick={closeModal}
+              disabled={submitting}
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              form="inbound-create-form"
+              className={`${styles.modalFooterButton} ${styles.modalFooterButtonPrimary}`}
+              disabled={submitting || optionsLoading || !!optionsError}
+            >
+              {submitting ? '등록 중...' : '등록'}
+            </button>
+          </>
+        }
+      >
+        <form id="inbound-create-form" className={styles.modalForm} onSubmit={handleSubmit}>
+          <div className={styles.formField}>
+            <label htmlFor="inbound-product">제품 선택</label>
+            <select
+              id="inbound-product"
+              name="productId"
+              value={formState.productId}
+              onChange={handleFormChange}
+              className={styles.formSelect}
+              disabled={optionsLoading}
+              required
+            >
+              <option value="">{optionsLoading ? '불러오는 중...' : '제품을 선택하세요'}</option>
+              {productOptions.map((product) => (
+                <option key={product.id} value={product.id}>
+                  {product.name} ({product.code})
+                  {product.unit ? ` · ${product.unit}` : ''}
+                  {product.specification ? ` · ${product.specification}` : ''}
+                </option>
+              ))}
+            </select>
+            {optionsError && (
+              <div className={styles.errorText}>
+                <span>{optionsError}</span>
+                <button type="button" onClick={loadProductOptions} className={styles.retryButton}>
+                  다시 시도
+                </button>
+              </div>
+            )}
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="inbound-quantity">입고 수량</label>
+            <input
+              id="inbound-quantity"
+              name="quantity"
+              type="number"
+              min={1}
+              value={formState.quantity}
+              onChange={handleFormChange}
+              className={styles.formInput}
+              placeholder="1 이상의 정수"
+              required
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="inbound-date">입고일</label>
+            <input
+              id="inbound-date"
+              name="dateIn"
+              type="date"
+              value={formState.dateIn}
+              onChange={handleFormChange}
+              className={styles.formInput}
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="inbound-note">비고</label>
+            <textarea
+              id="inbound-note"
+              name="note"
+              value={formState.note}
+              onChange={handleFormChange}
+              className={styles.formTextarea}
+              placeholder="비고를 입력하세요 (선택)"
+            />
+          </div>
+          {formError && <p className={styles.errorText}>{formError}</p>}
+        </form>
+      </Modal>
     </div>
   );
 }

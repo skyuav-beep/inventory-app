@@ -10,6 +10,9 @@ export interface AlertEntity {
   message: string;
   dedupKey?: string;
   sentAt?: Date;
+  retryAt?: Date;
+  retryReason?: string;
+  retryCount: number;
   createdAt: Date;
 }
 
@@ -24,6 +27,9 @@ export function toAlertEntity(alert: Alert & { product?: Product | null }): Aler
     message: alert.message,
     dedupKey: alert.dedupKey ?? undefined,
     sentAt: alert.sentAt ?? undefined,
+    retryAt: alert.retryAt ?? undefined,
+    retryReason: alert.retryReason ?? undefined,
+    retryCount: alert.retryCount,
     createdAt: alert.createdAt,
   };
 }

@@ -238,6 +238,186 @@
   color: #7f1d1d;
 }
 
+.usersTableWrapper {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.usersTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.usersTable thead {
+  background: rgba(15, 23, 42, 0.04);
+  color: #334155;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.usersTable th,
+.usersTable td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  vertical-align: top;
+}
+
+.usersTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.loadingRow,
+.emptyUsers {
+  padding: 28px;
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.userNameCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.userName {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.userRoleBadge {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.permissionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip,
+.chipAccent {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+
+.chipAccent {
+  background: rgba(29, 78, 216, 0.12);
+  color: #1d4ed8;
+}
+
+.paginationRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.paginationMeta {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.userForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modalGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modalField label {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.modalField input,
+.modalField select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.permissionsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.permissionTableWrapper {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.permissionTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.permissionTable th,
+.permissionTable td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.permissionTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.checkboxLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.checkboxLabel input {
+  width: 18px;
+  height: 18px;
+}
+
+.errorText {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
 .feedbackInfo {
   background: rgba(59, 130, 246, 0.12);
   border: 1px solid rgba(59, 130, 246, 0.3);

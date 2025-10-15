@@ -213,11 +213,27 @@ paths:
       summary: 제품 목록
       operationId: listProducts
       parameters:
-        - name: q
+        - name: search
           in: query
           description: 코드 또는 이름 검색어
           schema:
             type: string
+        - name: status
+          in: query
+          description: 재고 상태 필터
+          schema:
+            type: string
+            enum: [normal, warn, low]
+        - name: disabled
+          in: query
+          description: 사용 중지 여부 필터 (true/false)
+          schema:
+            type: boolean
+        - name: includeDisabled
+          in: query
+          description: 사용 중지 제품을 목록에 포함할지 여부
+          schema:
+            type: boolean
         - $ref: '#/components/parameters/PageParam'
         - $ref: '#/components/parameters/SizeParam'
       responses:
@@ -258,6 +274,8 @@ paths:
                 safetyStock:
                   type: integer
                   minimum: 0
+                disabled:
+                  type: boolean
                   default: 0
       responses:
         '201':
@@ -759,6 +777,18 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /health:
+    get:
+      tags: [System]
+      summary: 서비스 헬스 체크
+      operationId: getHealthStatus
+      responses:
+        '200':
+          description: 현재 서비스 상태 정보
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
   /alerts:
     get:
       tags: [Alerts]
@@ -780,8 +810,38 @@ paths:
       responses:
         '200':
           description: 테스트 알림 발송 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSendResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /alerts/custom:
+    post:
+      tags: [Alerts]
+      summary: 사용자 정의 알림 발송
+      operationId: sendCustomAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendCustomAlertRequest'
+      responses:
+        '200':
+          description: 사용자 정의 알림 발송 결과
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSendResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /uploads/inbounds:
     post:
       tags: [Uploads]
@@ -864,6 +924,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiError'
+    TooManyRequests:
+      description: 요청이 제한되었습니다
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     NotFound:
       description: 리소스를 찾을 수 없음
       content:
@@ -930,6 +996,97 @@ components:
           items:
             $ref: '#/components/schemas/Permission'
       required: [id, email, name, role]
+    SendCustomAlertRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 1000
+      required: [message]
+    AlertDecision:
+      type: object
+      properties:
+        canSend:
+          type: boolean
+        reason:
+          type: string
+          enum: [ok, cooldown, quiet_hours]
+        nextAttemptAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [canSend, reason]
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+          nullable: true
+        level:
+          type: string
+          enum: [info, warn, low, error]
+        channel:
+          type: string
+          enum: [telegram, slack, email]
+        message:
+          type: string
+        retryReason:
+          type: string
+          nullable: true
+        retryAt:
+          type: string
+          format: date-time
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, level, channel, message, createdAt]
+    AlertSendResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        decision:
+          $ref: '#/components/schemas/AlertDecision'
+        alert:
+          $ref: '#/components/schemas/Alert'
+          nullable: true
+      required: [success, decision]
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [up, down]
+                latencyMs:
+                  type: number
+                  format: double
+                  nullable: true
+                message:
+                  type: string
+                  nullable: true
+              required: [status]
+          required: [database]
+      required: [status, timestamp, services]
     Product:
       type: object
       properties:
@@ -942,6 +1099,12 @@ components:
         description:
           type: string
           nullable: true
+        specification:
+          type: string
+          nullable: true
+        unit:
+          type: string
+          default: EA
         safetyStock:
           type: integer
           minimum: 0
@@ -961,7 +1124,16 @@ components:
         status:
           type: string
           enum: [normal, warn, low]
-      required: [id, code, name, remain, status]
+        disabled:
+          type: boolean
+          default: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, code, name, unit, remain, status]
     Inbound:
       type: object
       properties:

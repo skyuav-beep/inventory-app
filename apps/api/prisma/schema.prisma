@@ -39,6 +39,14 @@ enum ReturnStatus {
   completed
 }
 
+enum AuditAction {
+  create
+  update
+  delete
+  login
+  logout
+}
+
 enum AlertLevel {
   info
   warn
@@ -75,6 +83,7 @@ model User {
   disabled      Boolean      @default(false)
 
   permissions   Permission[]
+  auditLogs     AuditLog[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -100,12 +109,15 @@ model Product {
   code         String         @unique
   name         String
   description  String?
+  specification String?
+  unit         String         @default("EA")
   safetyStock  Int            @default(0)
   totalIn      Int            @default(0)
   totalOut     Int            @default(0)
   totalReturn  Int            @default(0)
   remain       Int            @default(0)
   status       ProductStatus  @default(normal)
+  disabled     Boolean        @default(false)
 
   inbounds     Inbound[]
   outbounds    Outbound[]
@@ -171,11 +183,15 @@ model Alert {
   message    String
   dedupKey   String?     // to prevent duplicates within cooldown
   sentAt     DateTime?
+  retryAt    DateTime?
+  retryReason String?
+  retryCount Int         @default(0)
   createdAt  DateTime    @default(now())
 
   @@map("alerts")
   @@index([productId, sentAt(desc)])
   @@index([dedupKey])
+  @@index([retryAt])
 }
 
 model NotificationSetting {
@@ -196,6 +212,23 @@ model NotificationSetting {
   updatedAt            DateTime @updatedAt
 
   @@map("notification_settings")
+}
+
+model AuditLog {
+  id          String       @id @default(cuid())
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?
+  resource    Resource
+  action      AuditAction
+  entityId    String?
+  payloadJson Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime     @default(now())
+
+  @@map("audit_logs")
+  @@index([resource, action, createdAt])
+  @@index([userId, createdAt])
 }
 
 model TelegramTarget {

@@ -5,8 +5,9 @@ import { randomUUID } from 'node:crypto';
 import { hashSync } from 'bcryptjs';
 import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
+import { AlertsService } from '../../src/alerts/alerts.service';
 import { TelegramService } from '../../src/alerts/telegram/telegram.service';
-import { AlertLevel, Channel, ProductStatus, Resource, Role, ReturnStatus } from '@prisma/client';
+import { AuditAction, AlertLevel, Channel, ProductStatus, Resource, Role, ReturnStatus } from '@prisma/client';
 
 jest.setTimeout(60000);
 
@@ -37,6 +38,8 @@ interface ProductRecord {
   code: string;
   name: string;
   description?: string;
+  specification?: string;
+  unit: string;
   safetyStock: number;
   totalIn: number;
   totalOut: number;
@@ -103,6 +106,21 @@ interface AlertRecord {
   message: string;
   dedupKey?: string | null;
   sentAt?: Date | null;
+  retryAt?: Date | null;
+  retryReason?: string | null;
+  retryCount: number;
+  createdAt: Date;
+}
+
+interface AuditLogRecord {
+  id: string;
+  userId?: string | null;
+  resource: Resource;
+  action: AuditAction;
+  entityId?: string | null;
+  payloadJson?: unknown;
+  ipAddress?: string | null;
+  userAgent?: string | null;
   createdAt: Date;
 }
 
@@ -115,6 +133,7 @@ class InMemoryPrismaService {
   private notificationSettingRecord: NotificationSettingRecord;
   private telegramTargets: TelegramTargetRecord[] = [];
   private alerts: AlertRecord[] = [];
+  private auditLogs: AuditLogRecord[] = [];
 
   constructor() {
     const userId = randomUUID();
@@ -171,6 +190,42 @@ class InMemoryPrismaService {
     }
 
     return Promise.all(operations);
+  }
+
+  async $queryRaw<T = unknown>(): Promise<T> {
+    return [{ ok: true }] as unknown as T;
+  }
+
+  get auditLog() {
+    return {
+      create: async ({
+        data,
+      }: {
+        data: {
+          userId?: string | null;
+          resource: Resource;
+          action: AuditAction;
+          entityId?: string | null;
+          payloadJson?: unknown;
+          ipAddress?: string | null;
+          userAgent?: string | null;
+        };
+      }) => {
+        const record: AuditLogRecord = {
+          id: randomUUID(),
+          userId: data.userId ?? null,
+          resource: data.resource,
+          action: data.action,
+          entityId: data.entityId ?? null,
+          payloadJson: data.payloadJson,
+          ipAddress: data.ipAddress ?? null,
+          userAgent: data.userAgent ?? null,
+          createdAt: new Date(),
+        };
+        this.auditLogs.push(record);
+        return { ...record };
+      },
+    };
   }
 
   get user() {
@@ -283,6 +338,8 @@ class InMemoryPrismaService {
           code: data.code ?? randomUUID(),
           name: data.name ?? '제품',
           description: data.description ?? undefined,
+          specification: data.specification ?? undefined,
+          unit: data.unit ?? 'EA',
           safetyStock: data.safetyStock ?? 0,
           totalIn: 0,
           totalOut: 0,
@@ -772,6 +829,9 @@ class InMemoryPrismaService {
           message: string;
           dedupKey?: string | null;
           sentAt?: Date | null;
+          retryAt?: Date | null;
+          retryReason?: string | null;
+          retryCount?: number;
         };
         include?: { product?: boolean };
       }) => {
@@ -783,6 +843,9 @@ class InMemoryPrismaService {
           message: data.message,
           dedupKey: data.dedupKey ?? null,
           sentAt: data.sentAt ?? null,
+          retryAt: data.retryAt ?? null,
+          retryReason: data.retryReason ?? null,
+          retryCount: data.retryCount ?? 0,
           createdAt: new Date(),
         };
         this.alerts.push(record);
@@ -792,6 +855,32 @@ class InMemoryPrismaService {
         }
 
         return { ...record };
+      },
+      findUnique: async ({ where: { id }, include }: { where: { id: string }; include?: { product?: boolean } }) => {
+        const found = this.alerts.find((alert) => alert.id === id);
+        if (!found) {
+          return null;
+        }
+
+        return include?.product ? { ...found, product: this.findProduct(found.productId) } : { ...found };
+      },
+      update: async ({
+        where: { id },
+        data,
+        include,
+      }: {
+        where: { id: string };
+        data: Partial<Omit<AlertRecord, 'id' | 'createdAt'>>;
+        include?: { product?: boolean };
+      }) => {
+        const found = this.alerts.find((alert) => alert.id === id);
+        if (!found) {
+          throw new Error('Alert not found');
+        }
+
+        Object.assign(found, data);
+
+        return include?.product ? { ...found, product: this.findProduct(found.productId) } : { ...found };
       },
       findFirst: async ({ where }: { where: { productId?: string; channel?: Channel; sentAt?: { not: null } } }) => {
         const filtered = this.alerts
@@ -815,6 +904,25 @@ class InMemoryPrismaService {
         }
 
         return { ...found };
+      },
+      deleteMany: async ({ where }: { where?: { productId?: string; channel?: Channel } } = {}) => {
+        if (!where || (where.productId == null && where.channel == null)) {
+          const deleted = this.alerts.length;
+          this.alerts = [];
+          return { count: deleted };
+        }
+
+        const before = this.alerts.length;
+        this.alerts = this.alerts.filter((alert) => {
+          if (where.productId && alert.productId !== where.productId) {
+            return true;
+          }
+          if (where.channel && alert.channel !== where.channel) {
+            return true;
+          }
+          return false;
+        });
+        return { count: before - this.alerts.length };
       },
     };
   }
@@ -1448,6 +1556,89 @@ describe('AppModule e2e', () => {
 
   if (telegramStub.sentMessages.length === 0) {
     throw new Error('텔레그램 전송이 호출되지 않았습니다.');
+  }
+
+  const healthResponse = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+  expect(healthResponse.body).toHaveProperty('status');
+  expect(healthResponse.body).toHaveProperty('services.database.status');
+
+  telegramStub.sentMessages = [];
+
+  const updateQuietHoursPayload = {
+    enabled: true,
+    botToken: 'test-token',
+    cooldownMinutes: 1,
+    quietHours: '00-23',
+    targets: [
+      {
+        chatId: '123456',
+        label: '운영팀',
+        enabled: true,
+      },
+    ],
+  };
+
+  await request(app.getHttpServer())
+    .put('/api/v1/settings/notifications/telegram')
+    .set('Authorization', `Bearer ${token}`)
+    .send(updateQuietHoursPayload)
+    .expect(200);
+
+  const deferredResponse = await request(app.getHttpServer())
+    .post('/api/v1/alerts/test')
+    .set('Authorization', `Bearer ${token}`)
+    .expect(200);
+
+  if (deferredResponse.body.success !== false || deferredResponse.body.decision?.reason !== 'quiet_hours') {
+    throw new Error('조용시간 정책이 적용되어야 합니다.');
+  }
+
+  const pendingAlerts = await prisma.alert.findMany({ where: { sentAt: null } });
+
+  if (!Array.isArray(pendingAlerts) || pendingAlerts.length === 0) {
+    throw new Error('지연 알림이 생성되지 않았습니다.');
+  }
+
+  const pendingAlert = pendingAlerts[pendingAlerts.length - 1];
+
+  if (!pendingAlert.retryAt) {
+    throw new Error('지연 알림에 재시도 시간이 설정되지 않았습니다.');
+  }
+
+  if (pendingAlert.retryReason !== 'quiet_hours') {
+    throw new Error('지연 알림의 사유가 quiet_hours 이어야 합니다.');
+  }
+
+  await (prisma.alert as any).update({
+    where: { id: pendingAlert.id },
+    data: { retryAt: new Date(Date.now() - 60 * 1000) },
+  });
+
+  await request(app.getHttpServer())
+    .put('/api/v1/settings/notifications/telegram')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ ...updateQuietHoursPayload, quietHours: '23-23' })
+    .expect(200);
+
+  const alertsService = moduleRef.get(AlertsService);
+  const retryResult = await alertsService.processPendingAlert(pendingAlert.id);
+
+  if (retryResult !== 'sent') {
+    throw new Error('지연 알림 재시도가 성공적으로 처리되지 않았습니다.');
+  }
+
+  if (telegramStub.sentMessages.length === 0) {
+    throw new Error('지연 알림 재시도 후에도 텔레그램 전송이 호출되지 않았습니다.');
+  }
+
+  const refreshedAlert = await prisma.alert.findUnique({ where: { id: pendingAlert.id } });
+
+  if (!refreshedAlert?.sentAt) {
+    throw new Error('재시도 후 알림이 발송 완료 상태가 아닙니다.');
+  }
+
+  if (refreshedAlert.retryAt != null || refreshedAlert.retryReason != null) {
+    throw new Error('재시도 후 알림의 재시도 메타데이터가 초기화되지 않았습니다.');
   }
 
     } finally {

@@ -10,6 +10,7 @@ import {
 interface UseProductsFilters {
   search: string;
   status?: ProductStatus | 'all';
+  includeDisabled: boolean;
 }
 
 interface UseProductsState {
@@ -20,6 +21,7 @@ interface UseProductsState {
   filters: UseProductsFilters;
   setSearch: (value: string) => void;
   setStatus: (value: ProductStatus | 'all') => void;
+  setIncludeDisabled: (value: boolean) => void;
   setPage: (page: number) => void;
   refresh: () => void;
   summary: {
@@ -27,17 +29,25 @@ interface UseProductsState {
     low: number;
     warn: number;
     normal: number;
+    disabled: number;
   };
 }
 
 const DEFAULT_PAGE = { page: 1, size: 20, total: 0 };
 
-export function useProducts(initialFilters: UseProductsFilters = { search: '', status: 'all' }): UseProductsState {
+export function useProducts(
+  initialFilters: Partial<UseProductsFilters> = { search: '', status: 'all', includeDisabled: false },
+): UseProductsState {
+  const mergedFilters: UseProductsFilters = {
+    search: initialFilters.search ?? '',
+    status: initialFilters.status ?? 'all',
+    includeDisabled: initialFilters.includeDisabled ?? false,
+  };
   const [items, setItems] = useState<ProductListItem[]>([]);
   const [pagination, setPagination] = useState<ProductListResponse['page']>(DEFAULT_PAGE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<UseProductsFilters>(initialFilters);
+  const [filters, setFilters] = useState<UseProductsFilters>(mergedFilters);
   const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
@@ -50,6 +60,7 @@ export function useProducts(initialFilters: UseProductsFilters = { search: '', s
       size: DEFAULT_PAGE.size,
       search: filters.search,
       status: filters.status && filters.status !== 'all' ? filters.status : undefined,
+      includeDisabled: filters.includeDisabled,
     };
 
     try {
@@ -64,7 +75,7 @@ export function useProducts(initialFilters: UseProductsFilters = { search: '', s
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.status, page]);
+  }, [filters.search, filters.status, filters.includeDisabled, page]);
 
   useEffect(() => {
     void loadProducts();
@@ -77,6 +88,11 @@ export function useProducts(initialFilters: UseProductsFilters = { search: '', s
 
   const setStatus = useCallback((value: ProductStatus | 'all') => {
     setFilters((prev) => ({ ...prev, status: value }));
+    setPageState(1);
+  }, []);
+
+  const setIncludeDisabled = useCallback((value: boolean) => {
+    setFilters((prev) => ({ ...prev, includeDisabled: value }));
     setPageState(1);
   }, []);
 
@@ -99,6 +115,9 @@ export function useProducts(initialFilters: UseProductsFilters = { search: '', s
         } else {
           acc.normal += 1;
         }
+        if (product.disabled) {
+          acc.disabled += 1;
+        }
         return acc;
       },
       {
@@ -106,6 +125,7 @@ export function useProducts(initialFilters: UseProductsFilters = { search: '', s
         low: 0,
         warn: 0,
         normal: 0,
+        disabled: 0,
       },
     );
 
@@ -120,6 +140,7 @@ export function useProducts(initialFilters: UseProductsFilters = { search: '', s
     filters,
     setSearch,
     setStatus,
+    setIncludeDisabled,
     setPage: handleSetPage,
     refresh,
     summary,

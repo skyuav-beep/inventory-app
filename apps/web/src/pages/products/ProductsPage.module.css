@@ -86,8 +86,56 @@
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.tableActions {
+  text-align: right;
+}
+
+.tableActionButton {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tableActionButton:hover {
+  text-decoration: underline;
+}
+
+.tableActionButton:disabled {
+  cursor: not-allowed;
+  color: rgba(37, 99, 235, 0.4);
+}
+
 .tableWrapper tbody tr:hover {
   background: rgba(37, 99, 235, 0.05);
+}
+
+.disabledRow {
+  opacity: 0.65;
+}
+
+.activeBadge,
+.disabledBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.activeBadge {
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+}
+
+.disabledBadge {
+  background: rgba(100, 116, 139, 0.2);
+  color: #475569;
 }
 
 .status {
@@ -117,7 +165,7 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
 
@@ -167,6 +215,21 @@
   min-width: 260px;
 }
 
+.checkboxLabel,
+.checkboxLabelInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.checkboxLabel input,
+.checkboxLabelInline input {
+  width: 16px;
+  height: 16px;
+}
+
 .searchField {
   flex: 1;
 }
@@ -197,6 +260,119 @@
   border: 1px solid rgba(148, 163, 184, 0.5);
   background: #ffffff;
   font-size: 14px;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formFieldInline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.inlineHelpText {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.linkButton {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.linkButton:not(:disabled):hover {
+  text-decoration: underline;
+}
+
+.linkButton:disabled {
+  cursor: not-allowed;
+  color: rgba(37, 99, 235, 0.5);
+}
+
+.formField label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.formInput,
+.formTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.formInput:focus,
+.formTextarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.readonlyInput {
+  background: #f8fafc;
+  color: #475569;
+  cursor: not-allowed;
+}
+
+.modalFooterButton {
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+}
+
+.modalFooterButtonSecondary {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.modalFooterButtonPrimary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+}
+
+.modalFooterButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.errorText {
+  margin: 0;
+  font-size: 13px;
+  color: #ef4444;
 }
 
 .meta {

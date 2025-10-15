@@ -13,8 +13,7 @@ export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
   const currentRoute =
     appRoutes.find((route) => route.path === location.pathname) ?? appRoutes.find((route) => route.path === '/');
   const navigate = useNavigate();
-  const { logout, user, hasPermission } = useAuth();
-  const canQuickRegister = hasPermission('products', { write: true }) || hasPermission('inbounds', { write: true });
+  const { logout, user } = useAuth();
 
   const handleLogout = () => {
     logout();
@@ -42,9 +41,6 @@ export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
       </div>
 
       <div className={styles.actions}>
-        <button type="button" className={styles.primaryButton} disabled={!canQuickRegister}>
-          빠른 등록
-        </button>
         {user && (
           <div className={styles.userChip}>
             <span className={styles.userName}>{user.name}</span>

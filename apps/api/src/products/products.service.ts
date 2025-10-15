@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Product, ProductStatus } from '@prisma/client';
+import { AuditAction, Prisma, Product, ProductStatus, Resource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -8,6 +8,14 @@ import { ProductEntity, toProductEntity } from './entities/product.entity';
 import { calculateRemain, resolveProductStatus } from './utils/product-stock.util';
 import { AlertsService } from '../alerts/alerts.service';
 import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
+import { AuditService } from '../audit/audit.service';
+import { ActiveUserData } from '../auth/types/active-user-data';
+
+interface AuditContext {
+  actor?: ActiveUserData | null;
+  ip?: string;
+  userAgent?: string;
+}
 
 export interface AdjustStockResult {
   product: ProductEntity;
@@ -16,22 +24,41 @@ export interface AdjustStockResult {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService, private readonly alertsService: AlertsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alertsService: AlertsService,
+    private readonly auditService: AuditService,
+  ) {}
 
-  async create(payload: CreateProductDto): Promise<ProductEntity> {
+  async create(payload: CreateProductDto, context?: AuditContext): Promise<ProductEntity> {
     try {
       const product = await this.prisma.product.create({
         data: {
           code: payload.code,
           name: payload.name,
           description: payload.description,
+          specification: payload.specification,
+          unit: payload.unit ?? 'EA',
           safetyStock: payload.safetyStock ?? 0,
+          disabled: payload.disabled ?? false,
         },
       });
 
       const recalculated = await this.recalculateStock(product.id);
 
-      return toProductEntity(recalculated);
+      const entity = toProductEntity(recalculated);
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.products,
+        action: AuditAction.create,
+        entityId: entity.id,
+        payload: this.toJsonValue(payload),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
+
+      return entity;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('이미 존재하는 제품 코드입니다.');
@@ -54,12 +81,19 @@ export class ProductsService {
         where.OR = [
           { code: { contains: search, mode: 'insensitive' } },
           { name: { contains: search, mode: 'insensitive' } },
+          { specification: { contains: search, mode: 'insensitive' } },
         ];
       }
     }
 
     if (query.status) {
       where.status = query.status;
+    }
+
+    if (typeof query.disabled === 'boolean') {
+      where.disabled = query.disabled;
+    } else if (!query.includeDisabled) {
+      where.disabled = false;
     }
 
     const [products, total] = await this.prisma.$transaction([
@@ -93,7 +127,7 @@ export class ProductsService {
     return product ? toProductEntity(product) : null;
   }
 
-  async update(id: string, payload: UpdateProductDto): Promise<ProductEntity> {
+  async update(id: string, payload: UpdateProductDto, context?: AuditContext): Promise<ProductEntity> {
     const existing = await this.prisma.product.findUnique({ where: { id } });
 
     if (!existing) {
@@ -105,7 +139,10 @@ export class ProductsService {
       data: {
         name: payload.name,
         description: payload.description,
+        specification: payload.specification,
+        unit: payload.unit,
         safetyStock: payload.safetyStock,
+        disabled: payload.disabled,
       },
     });
 
@@ -116,10 +153,20 @@ export class ProductsService {
       await this.alertsService.notifyLowStock(entity);
     }
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.products,
+      action: AuditAction.update,
+      entityId: entity.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return entity;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, context?: AuditContext): Promise<void> {
     const existing = await this.prisma.product.findUnique({ where: { id } });
 
     if (!existing) {
@@ -127,6 +174,16 @@ export class ProductsService {
     }
 
     await this.prisma.product.delete({ where: { id } });
+
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.products,
+      action: AuditAction.delete,
+      entityId: existing.id,
+      payload: this.toJsonValue(existing),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
   }
 
   async adjustStock(
@@ -189,5 +246,17 @@ export class ProductsService {
         status,
       },
     });
+  }
+
+  private toJsonValue(value: unknown) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value)) as Prisma.JsonValue;
+    } catch {
+      return undefined;
+    }
   }
 }

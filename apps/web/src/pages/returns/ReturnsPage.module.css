@@ -241,6 +241,100 @@
   box-shadow: 0 8px 18px rgba(99, 102, 241, 0.2);
 }
 
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formField label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4338ca;
+}
+
+.formInput,
+.formSelect,
+.formTextarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.formTextarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.formInput:focus,
+.formSelect:focus,
+.formTextarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.errorText {
+  margin: 0;
+  font-size: 13px;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.retryButton {
+  border: none;
+  background: none;
+  color: #4f46e5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.retryButton:hover {
+  text-decoration: underline;
+}
+
+.retryButton:disabled {
+  cursor: not-allowed;
+  color: rgba(79, 70, 229, 0.5);
+}
+
+.modalFooterButton {
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+}
+
+.modalFooterButtonPrimary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+}
+
+.modalFooterButtonSecondary {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.modalFooterButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
   .headerRow {
     flex-direction: column;

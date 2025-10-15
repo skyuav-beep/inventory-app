@@ -26,6 +26,13 @@ export interface FetchInboundsParams {
   productId?: string;
 }
 
+export interface CreateInboundPayload {
+  productId: string;
+  quantity: number;
+  dateIn?: string;
+  note?: string;
+}
+
 export async function fetchInbounds(params: FetchInboundsParams = {}): Promise<InboundListResponse> {
   const query = new URLSearchParams();
 
@@ -45,3 +52,9 @@ export async function fetchInbounds(params: FetchInboundsParams = {}): Promise<I
   return apiFetch<InboundListResponse>(`/api/v1/inbounds${queryString}`);
 }
 
+export async function createInbound(payload: CreateInboundPayload): Promise<InboundListItem> {
+  return apiFetch<InboundListItem>('/api/v1/inbounds', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

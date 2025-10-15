@@ -14,7 +14,8 @@
     "test": "npm --workspaces run test",
     "lint": "npm --workspaces run lint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "devDependencies": {
     "npm-run-all": "^4.1.5",

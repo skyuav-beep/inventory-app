@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
+import { RequestLoggingInterceptor } from './common/interceptors/request-logging.interceptor';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,6 +19,8 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+  app.useGlobalInterceptors(new RequestLoggingInterceptor());
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   const prismaService = app.get(PrismaService);
   prismaService.enableShutdownHooks(app);

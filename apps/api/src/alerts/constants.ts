@@ -1,0 +1,2 @@
+export const ALERT_RETRY_DEFAULT_INTERVAL_MS = 5 * 60 * 1000; // 5분
+export const ALERT_RETRY_MAX_ATTEMPTS = 10;

@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ReturnStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuditAction, Prisma, Resource, ReturnStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockResult, ProductsService } from '../products/products.service';
 import { CreateReturnDto } from './dto/create-return.dto';
@@ -10,6 +10,14 @@ import { ReturnEntity, toReturnEntity } from './entities/return.entity';
 import { AlertsService } from '../alerts/alerts.service';
 import { shouldTriggerLowStockAlert } from '../alerts/utils/low-stock.util';
 import { ProductEntity } from '../products/entities/product.entity';
+import { AuditService } from '../audit/audit.service';
+import { ActiveUserData } from '../auth/types/active-user-data';
+
+interface AuditContext {
+  actor?: ActiveUserData | null;
+  ip?: string;
+  userAgent?: string;
+}
 
 @Injectable()
 export class ReturnsService {
@@ -17,6 +25,7 @@ export class ReturnsService {
     private readonly prisma: PrismaService,
     private readonly productsService: ProductsService,
     private readonly alertsService: AlertsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async findAll(query: ReturnListQueryDto): Promise<{ data: ReturnEntity[]; total: number }> {
@@ -51,7 +60,7 @@ export class ReturnsService {
     };
   }
 
-  async create(payload: CreateReturnDto): Promise<ReturnEntity> {
+  async create(payload: CreateReturnDto, context?: AuditContext): Promise<ReturnEntity> {
     const dateReturn = payload.dateReturn ?? new Date();
     const status = payload.status ?? ReturnStatus.pending;
 
@@ -62,6 +71,10 @@ export class ReturnsService {
 
       if (!product) {
         throw new NotFoundException('제품을 찾을 수 없습니다.');
+      }
+
+      if (product.disabled) {
+        throw new BadRequestException('사용 중지된 제품은 반품 등록이 제한됩니다.');
       }
 
       const record = await tx.returnRecord.create({
@@ -90,6 +103,16 @@ export class ReturnsService {
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.returns,
+      action: AuditAction.create,
+      entityId: result.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return result;
   }
 
@@ -106,7 +129,7 @@ export class ReturnsService {
     return toReturnEntity(record);
   }
 
-  async update(id: string, payload: UpdateReturnDto): Promise<ReturnEntity> {
+  async update(id: string, payload: UpdateReturnDto, context?: AuditContext): Promise<ReturnEntity> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -130,6 +153,10 @@ export class ReturnsService {
         if (!product) {
           throw new NotFoundException('제품을 찾을 수 없습니다.');
         }
+
+        if (product.disabled) {
+          throw new BadRequestException('사용 중지된 제품은 반품 등록이 제한됩니다.');
+        }
       }
 
       const updated = await tx.returnRecord.update({
@@ -146,6 +173,10 @@ export class ReturnsService {
 
       const previousEffective = record.status === ReturnStatus.completed ? record.quantity : 0;
       const nextEffective = nextStatus === ReturnStatus.completed ? nextQuantity : 0;
+
+      if (record.product?.disabled && nextEffective > previousEffective) {
+        throw new BadRequestException('사용 중지된 제품에는 새로운 반품 수량을 적용할 수 없습니다.');
+      }
 
       if (record.productId === nextProductId) {
         const delta = nextEffective - previousEffective;
@@ -188,14 +219,24 @@ export class ReturnsService {
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
 
+    await this.auditService.record({
+      userId: context?.actor?.userId,
+      resource: Resource.returns,
+      action: AuditAction.update,
+      entityId: result.id,
+      payload: this.toJsonValue(payload),
+      ipAddress: context?.ip,
+      userAgent: context?.userAgent,
+    });
+
     return result;
   }
 
-  async updateStatus(id: string, payload: UpdateReturnStatusDto): Promise<ReturnEntity> {
-    return this.update(id, payload);
+  async updateStatus(id: string, payload: UpdateReturnStatusDto, context?: AuditContext): Promise<ReturnEntity> {
+    return this.update(id, payload, context);
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, context?: AuditContext): Promise<void> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     await this.prisma.$transaction(async (tx) => {
@@ -217,6 +258,16 @@ export class ReturnsService {
         );
         this.collectLowStockCandidate(lowStockCandidates, adjustResult);
       }
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.returns,
+        action: AuditAction.delete,
+        entityId: record.id,
+        payload: this.toJsonValue(record),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
     });
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
@@ -235,6 +286,18 @@ export class ReturnsService {
 
     for (const product of store.values()) {
       await this.alertsService.notifyLowStock(product);
+    }
+  }
+
+  private toJsonValue(value: unknown) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
+    try {
+      return JSON.parse(JSON.stringify(value)) as Prisma.JsonValue;
+    } catch {
+      return undefined;
     }
   }
 }
