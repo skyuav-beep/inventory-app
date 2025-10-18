@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AlertLevel, Channel } from '@prisma/client';
+import { Alert, AlertLevel, Channel } from '@prisma/client';
 import { SettingsService } from '../settings/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { getNextQuietHoursExit, isWithinQuietHours, parseQuietHoursWindow } from './utils/quiet-hours.util';
@@ -35,7 +35,7 @@ export class AlertPolicyService {
     }
 
     if (params.productId) {
-      const lastAlert = await this.prisma.alert.findFirst({
+      const lastAlert: Alert | null = await this.prisma.alert.findFirst({
         where: {
           productId: params.productId,
           channel: params.channel,
