@@ -9,6 +9,7 @@
     "build": "tsc",
     "test": "jest --runInBand",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate:create": "prisma migrate dev --name init --create-only",
     "prisma:migrate:deploy": "prisma migrate deploy",
