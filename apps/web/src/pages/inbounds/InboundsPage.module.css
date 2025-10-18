@@ -79,6 +79,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  color: #1f2933;
 }
 
 .summaryTitle {
@@ -151,6 +152,7 @@
   padding: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   overflow-x: auto;
+  color: #1f2933;
 }
 
 .tableWrapper table {

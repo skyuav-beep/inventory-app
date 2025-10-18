@@ -23,4 +23,9 @@ export class CreateReturnDto {
   @IsOptional()
   @IsEnum(ReturnStatus)
   status?: ReturnStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  outboundId?: string;
 }

@@ -14,11 +14,15 @@ export interface DashboardProductItem {
   safetyStock: number;
   remain: number;
   status: 'normal' | 'warn' | 'low';
+  totalIn: number;
+  totalOut: number;
+  totalReturn: number;
 }
 
 export interface DashboardSummaryResponse {
   totals: DashboardSummaryTotals;
   lowStock: DashboardProductItem[];
+  stockByProduct: DashboardProductItem[];
 }
 
 export interface AlertLogItem {

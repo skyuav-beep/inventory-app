@@ -7,6 +7,14 @@ import { Modal } from '../../components/ui/Modal';
 import { downloadCsvTemplate } from '../../lib/downloadTemplate';
 import styles from './InboundsPage.module.css';
 
+const logError = (err: unknown) => {
+  if (err instanceof Error) {
+    console.error(err);
+  } else {
+    console.error(new Error(String(err)));
+  }
+};
+
 interface InboundFormState {
   productId: string;
   quantity: string;
@@ -81,7 +89,7 @@ export function InboundsPage() {
       const response = await fetchProducts({ page: 1, size: 200, disabled: false });
       setProductOptions(response.data);
     } catch (err) {
-      console.error(err);
+      logError(err);
       setOptionsError('제품 목록을 불러오지 못했습니다. 다시 시도해 주세요.');
     } finally {
       setOptionsLoading(false);
@@ -148,7 +156,7 @@ export function InboundsPage() {
       setPage(1);
       refresh();
     } catch (err) {
-      console.error(err);
+      logError(err);
       setFormError(err instanceof Error ? err.message : '입고 등록 중 오류가 발생했습니다.');
     } finally {
       setSubmitting(false);

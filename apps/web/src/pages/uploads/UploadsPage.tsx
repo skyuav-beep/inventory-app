@@ -155,10 +155,46 @@ export function UploadsPage() {
   };
 
   const handleDownloadOutboundTemplate = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    downloadCsvTemplate('outbounds-template.csv', ['code', 'quantity', 'date', 'note'], [
-      ['SKU-0002', '5', today, '출고 메모'],
-    ]);
+    const now = new Date().toISOString();
+    downloadCsvTemplate(
+      'outbounds-template.csv',
+      [
+        'product_code',
+        'product_name',
+        'unit',
+        'quantity',
+        'order_date',
+        'ship_date',
+        'orderer_id',
+        'orderer_name',
+        'recipient_name',
+        'recipient_phone',
+        'recipient_address',
+        'recipient_postal_code',
+        'customs_number',
+        'invoice_number',
+        'note',
+      ],
+      [
+        [
+          'SKU-0002',
+          '샘플 제품',
+          'EA',
+          '5',
+          now,
+          now,
+          'buyer01',
+          '홍길동',
+          '김수령',
+          '010-1234-5678',
+          '서울특별시 중구 세종대로 110',
+          '04524',
+          'P1234567890',
+          'INV-20240501-0001',
+          '출고 메모',
+        ],
+      ],
+    );
   };
 
   return (

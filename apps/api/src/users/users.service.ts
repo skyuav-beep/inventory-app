@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditAction, Prisma, Resource, Role } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -6,6 +6,7 @@ import { PermissionsService } from '../permissions/permissions.service';
 import { UserEntity, toUserEntity } from './entities/user.entity';
 import { UserWithPermissions } from './types/user-with-permissions';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { AuditService } from '../audit/audit.service';
 import { ActiveUserData } from '../auth/types/active-user-data';
 
@@ -129,6 +130,69 @@ export class UsersService {
 
       throw error;
     }
+  }
+
+  async updateUser(id: string, payload: UpdateUserDto, context?: AuditContext): Promise<UserEntity> {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { id },
+        include: { permissions: true },
+      });
+
+      if (!existing || existing.disabled) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      const nextRole = payload.role ?? existing.role;
+      const nextName = payload.name?.trim() ?? existing.name;
+
+      const permissionInput = payload.permissions
+        ? payload.permissions.map((permission) => ({
+            resource: permission.resource,
+            read: permission.read,
+            write: permission.write,
+          }))
+        : payload.role
+        ? undefined
+        : existing.permissions.map((permission) => ({
+            resource: permission.resource,
+            read: permission.read,
+            write: permission.write,
+          }));
+
+      const permissionsCreate = this.permissionsService.buildCreateInput(permissionInput, nextRole);
+
+      const updated = await tx.user.update({
+        where: { id },
+        data: {
+          name: nextName,
+          role: nextRole,
+          permissions: {
+            deleteMany: {},
+            create: permissionsCreate,
+          },
+        },
+        include: { permissions: true },
+      });
+
+      const entity = toUserEntity(updated);
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.settings,
+        action: AuditAction.update,
+        entityId: entity.id,
+        payload: this.toJsonValue({
+          name: entity.name,
+          role: entity.role,
+          permissions: permissionsCreate,
+        }),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
+
+      return entity;
+    });
   }
 
   private toJsonValue(value: unknown) {

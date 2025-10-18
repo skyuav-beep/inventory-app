@@ -46,6 +46,7 @@ interface ProductRecord {
   totalReturn: number;
   remain: number;
   status: ProductStatus;
+  disabled: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -346,6 +347,7 @@ class InMemoryPrismaService {
           totalReturn: 0,
           remain: 0,
           status: ProductStatus.normal,
+          disabled: data.disabled ?? false,
           createdAt: now,
           updatedAt: now,
         };
@@ -366,10 +368,94 @@ class InMemoryPrismaService {
         Object.assign(product, data, { updatedAt: new Date() });
         return { ...product };
       },
-      findMany: async ({ skip = 0, take = this.products.length }: { skip?: number; take?: number }) => {
-        return this.products.slice(skip, skip + take).map((product) => ({ ...product }));
+      findMany: async ({
+        where,
+        skip = 0,
+        take,
+        orderBy,
+      }: {
+        where?: { disabled?: boolean; status?: ProductStatus };
+        skip?: number;
+        take?: number;
+        orderBy?:
+          | Array<{ name?: 'asc' | 'desc'; remain?: 'asc' | 'desc'; createdAt?: 'asc' | 'desc' }>
+          | { name?: 'asc' | 'desc'; remain?: 'asc' | 'desc'; createdAt?: 'asc' | 'desc' };
+      } = {}) => {
+        let collection = [...this.products];
+
+        if (typeof where?.disabled === 'boolean') {
+          collection = collection.filter((product) => product.disabled === where.disabled);
+        }
+
+        if (where?.status) {
+          collection = collection.filter((product) => product.status === where.status);
+        }
+
+        const sorters = Array.isArray(orderBy) ? orderBy : orderBy ? [orderBy] : [];
+
+        if (sorters.length > 0) {
+          const directions: Record<'asc' | 'desc', 1 | -1> = { asc: 1, desc: -1 };
+          collection.sort((a, b) => {
+            for (const sorter of sorters) {
+              if (sorter.name) {
+                const compare = a.name.localeCompare(b.name) * directions[sorter.name];
+                if (compare !== 0) {
+                  return compare;
+                }
+              }
+
+              if (sorter.remain) {
+                const compare = (a.remain - b.remain) * directions[sorter.remain];
+                if (compare !== 0) {
+                  return compare;
+                }
+              }
+
+              if (sorter.createdAt) {
+                const compare = (a.createdAt.getTime() - b.createdAt.getTime()) * directions[sorter.createdAt];
+                if (compare !== 0) {
+                  return compare;
+                }
+              }
+            }
+
+            return 0;
+          });
+        }
+
+        const limit = typeof take === 'number' ? take : collection.length;
+        return collection.slice(skip, skip + limit).map((product) => ({ ...product }));
       },
-      count: async () => this.products.length,
+      count: async ({ where }: { where?: { disabled?: boolean; status?: ProductStatus } } = {}) => {
+        let collection = [...this.products];
+        if (typeof where?.disabled === 'boolean') {
+          collection = collection.filter((product) => product.disabled === where.disabled);
+        }
+        if (where?.status) {
+          collection = collection.filter((product) => product.status === where.status);
+        }
+        return collection.length;
+      },
+      aggregate: async ({ where }: { where?: { disabled?: boolean; status?: ProductStatus } } = {}) => {
+        let collection = [...this.products];
+        if (typeof where?.disabled === 'boolean') {
+          collection = collection.filter((product) => product.disabled === where.disabled);
+        }
+        if (where?.status) {
+          collection = collection.filter((product) => product.status === where.status);
+        }
+
+        return {
+          _sum: collection.reduce(
+            (acc, product) => ({
+              totalIn: acc.totalIn + product.totalIn,
+              totalOut: acc.totalOut + product.totalOut,
+              totalReturn: acc.totalReturn + product.totalReturn,
+            }),
+            { totalIn: 0, totalOut: 0, totalReturn: 0 },
+          ),
+        };
+      },
     };
   }
 

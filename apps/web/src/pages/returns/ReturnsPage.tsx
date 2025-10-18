@@ -1,10 +1,20 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useReturns } from '../../app/hooks/useReturns';
-import { ReturnStatus, createReturn } from '../../services/returnService';
+import { ReturnListItem, ReturnStatus, createReturn, deleteReturn, updateReturn } from '../../services/returnService';
 import { ProductListItem, fetchProducts } from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
 import { Modal } from '../../components/ui/Modal';
 import styles from './ReturnsPage.module.css';
+
+const logError = (err: unknown) => {
+  if (err instanceof Error) {
+    console.error(err);
+  } else {
+    console.error(new Error(String(err)));
+  }
+};
+
+type ModalMode = 'create' | 'edit';
 
 const statusOptions: Array<{ value: ReturnStatus | 'all'; label: string }> = [
   { value: 'all', label: '전체 상태' },
@@ -23,6 +33,7 @@ interface ReturnFormState {
   reason: string;
   status: ReturnStatus;
   dateReturn: string;
+  outboundId: string;
 }
 
 const createDefaultReturnForm = (): ReturnFormState => ({
@@ -31,6 +42,24 @@ const createDefaultReturnForm = (): ReturnFormState => ({
   reason: '',
   status: 'pending',
   dateReturn: new Date().toISOString().slice(0, 10),
+  outboundId: '',
+});
+
+const formatDateOnly = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  return date.toISOString().slice(0, 10);
+};
+
+const buildFormStateFromRecord = (record: ReturnListItem): ReturnFormState => ({
+  productId: record.productId,
+  quantity: String(record.quantity),
+  reason: record.reason,
+  status: record.status,
+  dateReturn: formatDateOnly(record.dateReturn),
+  outboundId: record.outboundId ?? '',
 });
 
 export function ReturnsPage() {
@@ -43,12 +72,18 @@ export function ReturnsPage() {
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const [isModalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('create');
+  const [editingReturnId, setEditingReturnId] = useState<string | null>(null);
   const [formState, setFormState] = useState<ReturnFormState>(() => createDefaultReturnForm());
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [productOptions, setProductOptions] = useState<ProductListItem[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const baseColumnCount = 9;
+  const tableColumnCount = canRegisterReturn ? baseColumnCount + 1 : baseColumnCount;
 
   useEffect(() => {
     setSearchInput(filters.search);
@@ -96,10 +131,10 @@ export function ReturnsPage() {
     try {
       setOptionsLoading(true);
       setOptionsError(null);
-      const response = await fetchProducts({ page: 1, size: 200, disabled: false });
+      const response = await fetchProducts({ page: 1, size: 200, includeDisabled: true });
       setProductOptions(response.data);
     } catch (err) {
-      console.error(err);
+      logError(err);
       setOptionsError('제품 목록을 불러오지 못했습니다. 다시 시도해 주세요.');
     } finally {
       setOptionsLoading(false);
@@ -116,9 +151,21 @@ export function ReturnsPage() {
     }
   }, [isModalOpen, productOptions.length, optionsLoading, optionsError, loadProductOptions]);
 
-  const openModal = () => {
+  const openCreateModal = () => {
+    setModalMode('create');
+    setEditingReturnId(null);
     setFormState(createDefaultReturnForm());
     setFormError(null);
+    setActionError(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (record: ReturnListItem) => {
+    setModalMode('edit');
+    setEditingReturnId(record.id);
+    setFormState(buildFormStateFromRecord(record));
+    setFormError(null);
+    setActionError(null);
     setModalOpen(true);
   };
 
@@ -127,10 +174,17 @@ export function ReturnsPage() {
       return;
     }
     setModalOpen(false);
+    setModalMode('create');
+    setEditingReturnId(null);
+    setFormState(createDefaultReturnForm());
+    setFormError(null);
+    setActionError(null);
   };
 
   const handleFormChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
+    setFormError(null);
+    setActionError(null);
     if (name === 'status') {
       setFormState((prev) => ({
         ...prev,
@@ -167,26 +221,83 @@ export function ReturnsPage() {
     setSubmitting(true);
     setFormError(null);
 
-    try {
-      await createReturn({
-        productId: formState.productId,
-        quantity: quantityValue,
-        reason: formState.reason.trim(),
-        status: formState.status,
-        dateReturn: formState.dateReturn ? new Date(formState.dateReturn).toISOString() : undefined,
-      });
+    if (modalMode === 'edit' && !editingReturnId) {
+      setSubmitting(false);
+      setFormError('수정할 반품 내역을 찾을 수 없습니다. 창을 닫고 다시 시도해 주세요.');
+      return;
+    }
 
+    const payload = {
+      productId: formState.productId,
+      quantity: quantityValue,
+      reason: formState.reason.trim(),
+      status: formState.status,
+      dateReturn: formState.dateReturn ? new Date(formState.dateReturn).toISOString() : undefined,
+      outboundId: formState.outboundId.trim() ? formState.outboundId.trim() : undefined,
+    };
+
+    try {
+      if (modalMode === 'edit' && editingReturnId) {
+        await updateReturn(editingReturnId, payload);
+      } else {
+        await createReturn(payload);
+        setPage(1);
+      }
+
+      setActionError(null);
       setModalOpen(false);
+      setModalMode('create');
+      setEditingReturnId(null);
       setFormState(createDefaultReturnForm());
-      setPage(1);
       refresh();
     } catch (err) {
-      console.error(err);
-      setFormError(err instanceof Error ? err.message : '반품 등록 중 오류가 발생했습니다.');
+      const message =
+        err instanceof Error
+          ? err.message
+          : modalMode === 'edit'
+          ? '반품 수정 중 오류가 발생했습니다.'
+          : '반품 등록 중 오류가 발생했습니다.';
+      logError(err);
+      setFormError(message);
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleDelete = async (record: ReturnListItem) => {
+    if (!canRegisterReturn || deletingId) {
+      return;
+    }
+
+    const confirmed = window.confirm('선택한 반품 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(record.id);
+    setActionError(null);
+
+    try {
+      await deleteReturn(record.id);
+      refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '반품 삭제 중 오류가 발생했습니다.';
+      logError(err);
+      setActionError(message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const submitButtonLabel = submitting
+    ? modalMode === 'edit'
+      ? '수정 중...'
+      : '등록 중...'
+    : modalMode === 'edit'
+    ? '수정'
+    : '등록';
+
+  const modalTitle = modalMode === 'create' ? '반품 등록' : '반품 수정';
 
   return (
     <div className={styles.container}>
@@ -196,7 +307,12 @@ export function ReturnsPage() {
           <p>반품 요청 상태를 확인하고 추가 검토 작업을 진행하세요.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.primaryButton} disabled={!canRegisterReturn} onClick={openModal}>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            disabled={!canRegisterReturn}
+            onClick={openCreateModal}
+          >
             반품 등록
           </button>
         </div>
@@ -251,31 +367,37 @@ export function ReturnsPage() {
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
+      {actionError && <div className={styles.errorBanner}>{actionError}</div>}
 
       <div className={styles.tableWrapper}>
         <table>
           <thead>
             <tr>
+              <th>출고일</th>
               <th>반품일</th>
               <th>제품</th>
+              <th>주문자 아이디</th>
+              <th>주문자 성명</th>
               <th>수량</th>
               <th>상태</th>
               <th>사유</th>
               <th>등록 시각</th>
+              {canRegisterReturn && <th>작업</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr className={styles.loadingRow}>
-                <td colSpan={6}>반품 내역을 불러오는 중입니다...</td>
+                <td colSpan={tableColumnCount}>반품 내역을 불러오는 중입니다...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr className={styles.emptyRow}>
-                <td colSpan={6}>조건에 맞는 반품 기록이 없습니다.</td>
+                <td colSpan={tableColumnCount}>조건에 맞는 반품 기록이 없습니다.</td>
               </tr>
             ) : (
               items.map((record) => (
                 <tr key={record.id}>
+                  <td>{record.dateOut ? new Date(record.dateOut).toLocaleString() : '-'}</td>
                   <td>{new Date(record.dateReturn).toLocaleString()}</td>
                   <td>
                     <div className={styles.productNameCell}>
@@ -283,6 +405,8 @@ export function ReturnsPage() {
                       <span className={styles.productCode}>{record.productCode}</span>
                     </div>
                   </td>
+                  <td>{record.ordererId ?? '-'}</td>
+                  <td>{record.ordererName ?? '-'}</td>
                   <td>{record.quantity.toLocaleString()}</td>
                   <td>
                     <span
@@ -295,6 +419,26 @@ export function ReturnsPage() {
                   </td>
                   <td>{record.reason}</td>
                   <td>{new Date(record.createdAt).toLocaleString()}</td>
+                  {canRegisterReturn && (
+                    <td className={styles.actionCell}>
+                      <button
+                        type="button"
+                        className={styles.actionButton}
+                        onClick={() => openEditModal(record)}
+                        disabled={submitting && editingReturnId === record.id}
+                      >
+                        수정
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.actionButton} ${styles.actionButtonDanger}`}
+                        onClick={() => handleDelete(record)}
+                        disabled={deletingId === record.id}
+                      >
+                        {deletingId === record.id ? '삭제 중...' : '삭제'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -316,7 +460,7 @@ export function ReturnsPage() {
 
       <Modal
         open={isModalOpen}
-        title="반품 등록"
+        title={modalTitle}
         onClose={closeModal}
         footer={
           <>
@@ -330,16 +474,16 @@ export function ReturnsPage() {
             </button>
             <button
               type="submit"
-              form="return-create-form"
+              form="return-form"
               className={`${styles.modalFooterButton} ${styles.modalFooterButtonPrimary}`}
               disabled={submitting || optionsLoading || !!optionsError}
             >
-              {submitting ? '등록 중...' : '등록'}
+              {submitButtonLabel}
             </button>
           </>
         }
       >
-        <form id="return-create-form" className={styles.modalForm} onSubmit={handleSubmit}>
+        <form id="return-form" className={styles.modalForm} onSubmit={handleSubmit}>
           <div className={styles.formField}>
             <label htmlFor="return-product">제품 선택</label>
             <select
@@ -368,6 +512,18 @@ export function ReturnsPage() {
               </button>
             </div>
           )}
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="return-outbound-id">연결된 출고 ID (선택)</label>
+            <input
+              id="return-outbound-id"
+              name="outboundId"
+              type="text"
+              value={formState.outboundId}
+              onChange={handleFormChange}
+              className={styles.formInput}
+              placeholder="출고 내역 ID (선택 입력)"
+            />
           </div>
           <div className={styles.formField}>
             <label htmlFor="return-quantity">반품 수량</label>

@@ -1,5 +1,5 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { useProducts } from '../../app/hooks/useProducts';
+import { ProductDisabledFilter, useProducts } from '../../app/hooks/useProducts';
 import type { ProductListItem } from '../../services/productService';
 import { ProductStatus, createProduct, updateProduct } from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,6 +19,12 @@ const statusLabels: Record<ProductStatus, string> = {
   warn: '주의',
   low: '부족',
 };
+
+const disabledFilterOptions: Array<{ value: ProductDisabledFilter; label: string }> = [
+  { value: 'active', label: '사용 중 제품만' },
+  { value: 'with-disabled', label: '사용 중지 포함' },
+  { value: 'disabled', label: '사용 중지 제품만' },
+];
 
 interface ProductFormState {
   code: string;
@@ -45,23 +51,12 @@ const createDefaultProductForm = (): ProductFormState => ({
 export function ProductsPage() {
   const { hasPermission } = useAuth();
   const canManageProducts = hasPermission('products', { write: true });
-  const {
-    items,
-    pagination,
-    loading,
-    error,
-    filters,
-    setSearch,
-    setStatus,
-    setIncludeDisabled,
-    setPage,
-    refresh,
-    summary,
-  } = useProducts({
-    search: '',
-    status: 'all',
-    includeDisabled: false,
-  });
+  const { items, pagination, loading, error, filters, setSearch, setStatus, setDisabledFilter, setPage, refresh, summary } =
+    useProducts({
+      search: '',
+      status: 'all',
+      disabledFilter: 'active',
+    });
   const [searchInput, setSearchInput] = useState(filters.search);
   const [isModalOpen, setModalOpen] = useState(false);
   const [productForm, setProductForm] = useState<ProductFormState>(() => createDefaultProductForm());
@@ -231,7 +226,7 @@ export function ProductsPage() {
     openEditModal(product);
   };
 
-  const tableColumnCount = canManageProducts ? 11 : 10;
+  const tableColumnCount = canManageProducts ? 12 : 11;
 
   const handleToggleProductState = async (product: ProductListItem) => {
     if (!canManageProducts || togglingProductId) {
@@ -256,6 +251,40 @@ export function ProductsPage() {
     downloadCsvTemplate('products-template.csv', ['code', 'name', 'description', 'specification', 'unit', 'safetyStock'], [
       ['SKU-0001', '샘플 제품', '', '', 'EA', '10'],
     ]);
+  };
+
+  const handleProductDownload = (product: ProductListItem) => {
+    const headers = [
+      '제품코드',
+      '제품명',
+      '설명',
+      '규격',
+      '단위',
+      '안전재고',
+      '현재 재고',
+      '총 입고',
+      '총 출고',
+      '총 반품',
+      '상태',
+      '사용 여부',
+    ];
+
+    const row = [
+      product.code,
+      product.name,
+      product.description ?? '',
+      product.specification ?? '',
+      product.unit ?? 'EA',
+      product.safetyStock.toString(),
+      product.remain.toString(),
+      product.totalIn.toString(),
+      product.totalOut.toString(),
+      product.totalReturn.toString(),
+      statusLabels[product.status],
+      product.disabled ? '사용 중지' : '사용 중',
+    ];
+
+    downloadCsvTemplate(`${product.code}_detail.csv`, headers, [row]);
   };
 
   return (
@@ -328,14 +357,20 @@ export function ProductsPage() {
               ))}
             </select>
           </div>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={filters.includeDisabled}
-              onChange={(event) => setIncludeDisabled(event.target.checked)}
-            />
-            사용 중지 포함
-          </label>
+          <div className={styles.selectField}>
+            <select
+              value={filters.disabledFilter}
+              aria-label="사용 상태 필터"
+              onChange={(event) => setDisabledFilter(event.target.value as ProductDisabledFilter)}
+              className={styles.select}
+            >
+              {disabledFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
         <div className={styles.meta}>
           <span>
@@ -359,6 +394,7 @@ export function ProductsPage() {
               <th>현재 재고</th>
               <th>총 입고</th>
               <th>총 출고</th>
+              <th>총 반품</th>
               <th>상태</th>
               <th>사용 여부</th>
               {canManageProducts && <th>동작</th>}
@@ -397,6 +433,7 @@ export function ProductsPage() {
                     <td>{product.remain.toLocaleString()}</td>
                     <td>{product.totalIn.toLocaleString()}</td>
                     <td>{product.totalOut.toLocaleString()}</td>
+                    <td>{product.totalReturn.toLocaleString()}</td>
                     <td>
                       <span className={`${styles.status} ${statusClass}`}>{statusLabels[product.status]}</span>
                     </td>
@@ -407,21 +444,40 @@ export function ProductsPage() {
                     </td>
                     {canManageProducts && (
                       <td className={styles.tableActions}>
-                        <button
-                          type="button"
-                          className={styles.tableActionButton}
-                          onClick={() => handleEditClick(product)}
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.tableActionButton}
-                          onClick={() => handleToggleProductState(product)}
-                          disabled={togglingProductId === product.id}
-                        >
-                          {product.disabled ? (togglingProductId === product.id ? '해제 중...' : '사용 재개') : togglingProductId === product.id ? '중지 중...' : '사용 중지'}
-                        </button>
+                        <div className={styles.tableActionGroup}>
+                          <button
+                            type="button"
+                            className={`${styles.tableActionButton} ${styles.tableActionButtonEdit}`}
+                            onClick={() => handleEditClick(product)}
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.tableActionButton} ${
+                              product.disabled
+                                ? styles.tableActionButtonToggleEnable
+                                : styles.tableActionButtonToggleDisable
+                            }`}
+                            onClick={() => handleToggleProductState(product)}
+                            disabled={togglingProductId === product.id}
+                          >
+                            {product.disabled
+                              ? togglingProductId === product.id
+                                ? '해제 중...'
+                                : '사용 재개'
+                              : togglingProductId === product.id
+                                ? '중지 중...'
+                                : '사용 중지'}
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.tableActionButton} ${styles.tableActionButtonDownload}`}
+                            onClick={() => handleProductDownload(product)}
+                          >
+                            다운로드
+                          </button>
+                        </div>
                       </td>
                     )}
                   </tr>

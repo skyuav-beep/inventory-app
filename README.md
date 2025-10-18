@@ -118,6 +118,23 @@ docker compose up --build
 
 - 실제 PostgreSQL 대상 검증:
 
+## 8. 데이터베이스 백업
+
+- PostgreSQL 클라이언트 도구(`pg_dump`)가 PATH에 있어야 합니다.
+- 백업은 루트 환경 변수 `DATABASE_URL`을 사용하며, 기본적으로 `backups/` 디렉터리에 타임스탬프가 포함된 파일을 생성합니다.
+
+```bash
+npm run backup:db
+```
+
+추가 옵션:
+
+- `npm run backup:db -- --out-dir ./custom-backups` : 백업 저장 경로 지정
+- `npm run backup:db -- --format plain` : `.sql` 텍스트 덤프로 생성
+- `npm run backup:db -- --name nightly-2025-10-15` : 사용자 정의 파일 이름 사용
+
+정기 백업이 필요한 경우 CI/CD 또는 cron 잡에서 위 스크립트를 호출하고, 생성된 파일을 원격 스토리지(S3 등)로 업로드하도록 구성하세요.
+
   ```bash
   export DATABASE_URL="postgresql://user:password@localhost:5432/inventory_test"
   export E2E_USE_REAL_DB=true

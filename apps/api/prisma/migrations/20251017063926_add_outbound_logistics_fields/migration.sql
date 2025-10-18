@@ -1,0 +1,2 @@
+-- Intentional no-op migration.
+-- Previous generated statements were removed to avoid conflicting audit log changes.

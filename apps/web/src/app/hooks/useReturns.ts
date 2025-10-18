@@ -7,6 +7,14 @@ import {
   fetchReturns,
 } from '../../services/returnService';
 
+const logError = (err: unknown) => {
+  if (err instanceof Error) {
+    console.error(err);
+  } else {
+    console.error(new Error(String(err)));
+  }
+};
+
 interface UseReturnsFilters {
   search: string;
   status: ReturnStatus | 'all';
@@ -21,6 +29,7 @@ interface UseReturnsState {
   setSearch: (value: string) => void;
   setStatus: (status: ReturnStatus | 'all') => void;
   setPage: (page: number) => void;
+  refresh: () => void;
   summary: {
     totalQuantity: number;
     completedCount: number;
@@ -50,7 +59,7 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
         setRawItems(response.data);
         setPagination(response.page);
       } catch (err) {
-        console.error(err);
+        logError(err);
         setRawItems([]);
         setPagination(DEFAULT_PAGE);
         setError('반품 내역을 불러오지 못했습니다.');
@@ -81,7 +90,9 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
       return (
         item.productName.toLowerCase().includes(keyword) ||
         item.productCode.toLowerCase().includes(keyword) ||
-        item.reason.toLowerCase().includes(keyword)
+        item.reason.toLowerCase().includes(keyword) ||
+        (item.ordererId?.toLowerCase().includes(keyword) ?? false) ||
+        (item.ordererName?.toLowerCase().includes(keyword) ?? false)
       );
     });
 

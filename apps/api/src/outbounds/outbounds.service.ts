@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { AuditAction, Prisma, Resource } from '@prisma/client';
+import { $Enums, AuditAction, Prisma, Resource } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdjustStockResult, ProductsService } from '../products/products.service';
 import { CreateOutboundDto } from './dto/create-outbound.dto';
@@ -36,6 +36,10 @@ export class OutboundsService {
 
     if (query.productId) {
       where.productId = query.productId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
     }
 
     const [records, total] = await this.prisma.$transaction([
@@ -80,7 +84,17 @@ export class OutboundsService {
           productId: payload.productId,
           quantity: payload.quantity,
           dateOut,
-          note: payload.note,
+          status: payload.status ?? $Enums.OutboundStatus.shipped,
+          note: this.sanitizeNullableString(payload.note),
+          orderDate: payload.orderDate ?? null,
+          ordererId: this.sanitizeNullableString(payload.ordererId),
+          ordererName: this.sanitizeNullableString(payload.ordererName),
+          recipientName: this.sanitizeNullableString(payload.recipientName),
+          recipientPhone: this.sanitizeNullableString(payload.recipientPhone),
+          recipientAddress: this.sanitizeNullableString(payload.recipientAddress),
+          recipientPostalCode: this.sanitizeNullableString(payload.recipientPostalCode),
+          customsNumber: this.sanitizeNullableString(payload.customsNumber),
+          invoiceNumber: this.sanitizeNullableString(payload.invoiceNumber),
         },
       });
 
@@ -140,7 +154,6 @@ export class OutboundsService {
       const nextProductId = payload.productId ?? existing.productId;
       const nextQuantity = payload.quantity ?? existing.quantity;
       const nextDateOut = payload.dateOut ?? existing.dateOut;
-      const nextNote = payload.note ?? existing.note;
 
       let targetProduct = existing.product;
 
@@ -177,7 +190,40 @@ export class OutboundsService {
           productId: nextProductId,
           quantity: nextQuantity,
           dateOut: nextDateOut,
-          note: nextNote,
+          status: payload.status !== undefined ? payload.status : undefined,
+          note:
+            payload.note !== undefined ? this.sanitizeNullableString(payload.note) : undefined,
+          orderDate: payload.orderDate !== undefined ? payload.orderDate ?? null : undefined,
+          ordererId:
+            payload.ordererId !== undefined ? this.sanitizeNullableString(payload.ordererId) : undefined,
+          ordererName:
+            payload.ordererName !== undefined
+              ? this.sanitizeNullableString(payload.ordererName)
+              : undefined,
+          recipientName:
+            payload.recipientName !== undefined
+              ? this.sanitizeNullableString(payload.recipientName)
+              : undefined,
+          recipientPhone:
+            payload.recipientPhone !== undefined
+              ? this.sanitizeNullableString(payload.recipientPhone)
+              : undefined,
+          recipientAddress:
+            payload.recipientAddress !== undefined
+              ? this.sanitizeNullableString(payload.recipientAddress)
+              : undefined,
+          recipientPostalCode:
+            payload.recipientPostalCode !== undefined
+              ? this.sanitizeNullableString(payload.recipientPostalCode)
+              : undefined,
+          customsNumber:
+            payload.customsNumber !== undefined
+              ? this.sanitizeNullableString(payload.customsNumber)
+              : undefined,
+          invoiceNumber:
+            payload.invoiceNumber !== undefined
+              ? this.sanitizeNullableString(payload.invoiceNumber)
+              : undefined,
         },
         include: { product: true },
       });
@@ -281,6 +327,15 @@ export class OutboundsService {
     for (const product of store.values()) {
       await this.alertsService.notifyLowStock(product);
     }
+  }
+
+  private sanitizeNullableString(value?: string | null): string | null {
+    if (value === undefined || value === null) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 
   private toJsonValue(value: unknown) {

@@ -1,7 +1,8 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import styles from './Topbar.module.css';
 import { appRoutes } from '../../app/routes';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../hooks/useTheme';
 
 interface TopbarProps {
   onToggleSidebar: () => void;
@@ -12,13 +13,8 @@ export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
   const location = useLocation();
   const currentRoute =
     appRoutes.find((route) => route.path === location.pathname) ?? appRoutes.find((route) => route.path === '/');
-  const navigate = useNavigate();
-  const { logout, user } = useAuth();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/login', { replace: true });
-  };
+  const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className={styles.topbar}>
@@ -47,8 +43,13 @@ export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
             <span className={styles.userRole}>{user.role}</span>
           </div>
         )}
-        <button type="button" className={styles.secondaryButton} onClick={handleLogout}>
-          로그아웃
+        <button
+          type="button"
+          className={styles.iconButton}
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? '라이트 테마로 전환' : '다크 테마로 전환'}
+        >
+          <span aria-hidden="true">{theme === 'dark' ? '🌙' : '🌞'}</span>
         </button>
       </div>
     </header>

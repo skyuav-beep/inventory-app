@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ProductStatus } from '@prisma/client';
+import { Product, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { toProductEntity } from '../products/entities/product.entity';
 import { composeDashboardTotals } from './utils/dashboard-totals.util';
@@ -10,10 +10,27 @@ export class DashboardService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  private mapProductSnapshot(product: Product) {
+    const entity = toProductEntity(product);
+
+    return {
+      id: entity.id,
+      code: entity.code,
+      name: entity.name,
+      safetyStock: entity.safetyStock,
+      remain: entity.remain,
+      totalIn: entity.totalIn,
+      totalOut: entity.totalOut,
+      totalReturn: entity.totalReturn,
+      status: entity.status,
+    };
+  }
+
   async getSummary() {
-    const [totalProducts, aggregates, lowStockProducts] = await this.prisma.$transaction([
-      this.prisma.product.count(),
+    const [totalProducts, aggregates, lowStockProducts, productSnapshot] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: { disabled: false } }),
       this.prisma.product.aggregate({
+        where: { disabled: false },
         _sum: {
           totalIn: true,
           totalOut: true,
@@ -21,9 +38,13 @@ export class DashboardService {
         },
       }),
       this.prisma.product.findMany({
-        where: { status: ProductStatus.low },
+        where: { status: ProductStatus.low, disabled: false },
         orderBy: { remain: 'asc' },
         take: this.lowStockLimit,
+      }),
+      this.prisma.product.findMany({
+        where: { disabled: false },
+        orderBy: { name: 'asc' },
       }),
     ]);
 
@@ -35,7 +56,8 @@ export class DashboardService {
 
     return {
       totals,
-      lowStock: lowStockProducts.map(toProductEntity),
+      lowStock: lowStockProducts.map((product) => this.mapProductSnapshot(product)),
+      stockByProduct: productSnapshot.map((product) => this.mapProductSnapshot(product)),
     };
   }
 }

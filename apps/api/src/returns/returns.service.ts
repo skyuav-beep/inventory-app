@@ -49,7 +49,7 @@ export class ReturnsService {
         skip,
         take: size,
         orderBy: { dateReturn: 'desc' },
-        include: { product: true },
+        include: { product: true, outbound: true },
       }),
       this.prisma.returnRecord.count({ where }),
     ]);
@@ -77,6 +77,20 @@ export class ReturnsService {
         throw new BadRequestException('사용 중지된 제품은 반품 등록이 제한됩니다.');
       }
 
+      const outboundId = this.normalizeOptionalString(payload.outboundId);
+
+      if (outboundId) {
+        const outbound = await tx.outbound.findUnique({ where: { id: outboundId } });
+
+        if (!outbound) {
+          throw new NotFoundException('출고 내역을 찾을 수 없습니다.');
+        }
+
+        if (outbound.productId !== payload.productId) {
+          throw new BadRequestException('반품 제품과 연결된 출고 제품이 일치하지 않습니다.');
+        }
+      }
+
       const record = await tx.returnRecord.create({
         data: {
           productId: payload.productId,
@@ -84,7 +98,9 @@ export class ReturnsService {
           reason: payload.reason,
           status,
           dateReturn,
+          outboundId,
         },
+        include: { product: true, outbound: true },
       });
 
       if (status === ReturnStatus.completed) {
@@ -98,7 +114,7 @@ export class ReturnsService {
         this.collectLowStockCandidate(lowStockCandidates, adjustResult);
       }
 
-      return toReturnEntity({ ...record, product });
+      return toReturnEntity(record);
     });
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
@@ -119,7 +135,7 @@ export class ReturnsService {
   async findOne(id: string): Promise<ReturnEntity> {
     const record = await this.prisma.returnRecord.findUnique({
       where: { id },
-      include: { product: true },
+      include: { product: true, outbound: true },
     });
 
     if (!record) {
@@ -135,7 +151,7 @@ export class ReturnsService {
     const result = await this.prisma.$transaction(async (tx) => {
       const record = await tx.returnRecord.findUnique({
         where: { id },
-        include: { product: true },
+        include: { product: true, outbound: true },
       });
 
       if (!record) {
@@ -159,6 +175,27 @@ export class ReturnsService {
         }
       }
 
+      let resolvedOutboundId = record.outboundId ?? null;
+      let resolvedOutbound = record.outbound ?? null;
+
+      if (payload.outboundId !== undefined) {
+        const normalizedOutboundId = this.normalizeOptionalString(payload.outboundId);
+        if (normalizedOutboundId) {
+          resolvedOutbound = await tx.outbound.findUnique({ where: { id: normalizedOutboundId } });
+          if (!resolvedOutbound) {
+            throw new NotFoundException('출고 내역을 찾을 수 없습니다.');
+          }
+          resolvedOutboundId = normalizedOutboundId;
+        } else {
+          resolvedOutboundId = null;
+          resolvedOutbound = null;
+        }
+      }
+
+      if (resolvedOutbound && resolvedOutbound.productId !== nextProductId) {
+        throw new BadRequestException('반품 제품과 연결된 출고 제품이 일치하지 않습니다.');
+      }
+
       const updated = await tx.returnRecord.update({
         where: { id },
         data: {
@@ -167,14 +204,15 @@ export class ReturnsService {
           reason: nextReason,
           status: nextStatus,
           dateReturn: nextDateReturn,
+          outboundId: resolvedOutboundId,
         },
-        include: { product: true },
+        include: { product: true, outbound: true },
       });
 
       const previousEffective = record.status === ReturnStatus.completed ? record.quantity : 0;
       const nextEffective = nextStatus === ReturnStatus.completed ? nextQuantity : 0;
 
-      if (record.product?.disabled && nextEffective > previousEffective) {
+      if (record.product?.disabled && record.productId === nextProductId && nextEffective > previousEffective) {
         throw new BadRequestException('사용 중지된 제품에는 새로운 반품 수량을 적용할 수 없습니다.');
       }
 
@@ -299,5 +337,14 @@ export class ReturnsService {
     } catch {
       return undefined;
     }
+  }
+
+  private normalizeOptionalString(value: string | undefined | null): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 }

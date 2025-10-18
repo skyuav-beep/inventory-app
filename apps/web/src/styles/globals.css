@@ -1,7 +1,58 @@
 :root {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #1f2933;
-  background-color: #f5f7fa;
+  color-scheme: light;
+  --color-bg-page: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-text-primary: #1f2933;
+  --color-text-muted: #64748b;
+  --color-border-subtle: rgba(148, 163, 184, 0.3);
+  --color-shadow-surface: rgba(15, 23, 42, 0.08);
+  --sidebar-background: linear-gradient(180deg, #1f2933 0%, #111827 100%);
+  --sidebar-text: #f8fafc;
+  --sidebar-active-background: #2563eb;
+  --sidebar-active-shadow: rgba(37, 99, 235, 0.4);
+  --sidebar-divider: rgba(148, 163, 184, 0.16);
+  --chip-background: rgba(37, 99, 235, 0.12);
+  --chip-text: #1d4ed8;
+  --chip-role-background: rgba(15, 23, 42, 0.1);
+  --chip-role-text: #334155;
+  --button-secondary-background: #ffffff;
+  --button-secondary-text: #1f2933;
+  --button-secondary-border: rgba(148, 163, 184, 0.5);
+  --button-secondary-hover-shadow: rgba(148, 163, 184, 0.2);
+  --menu-button-background: #ffffff;
+  --menu-button-border: rgba(148, 163, 184, 0.4);
+  --menu-button-line: #1f2933;
+  --toggle-track: #e2e8f0;
+  --toggle-thumb: #0f172a;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg-page: #0f172a;
+  --color-surface: #111827;
+  --color-text-primary: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-border-subtle: rgba(148, 163, 184, 0.25);
+  --color-shadow-surface: rgba(15, 23, 42, 0.45);
+  --sidebar-background: linear-gradient(180deg, #111827 0%, #020617 100%);
+  --sidebar-text: #e2e8f0;
+  --sidebar-active-background: #1d4ed8;
+  --sidebar-active-shadow: rgba(29, 78, 216, 0.45);
+  --sidebar-divider: rgba(51, 65, 85, 0.6);
+  --chip-background: rgba(59, 130, 246, 0.2);
+  --chip-text: #bfdbfe;
+  --chip-role-background: rgba(148, 163, 184, 0.18);
+  --chip-role-text: #e2e8f0;
+  --button-secondary-background: rgba(30, 41, 59, 0.7);
+  --button-secondary-text: #e2e8f0;
+  --button-secondary-border: rgba(148, 163, 184, 0.3);
+  --button-secondary-hover-shadow: rgba(15, 23, 42, 0.6);
+  --menu-button-background: rgba(30, 41, 59, 0.7);
+  --menu-button-border: rgba(148, 163, 184, 0.3);
+  --menu-button-line: #e2e8f0;
+  --toggle-track: #1e293b;
+  --toggle-thumb: #e2e8f0;
 }
 
 * {
@@ -10,6 +61,9 @@
 
 body {
   margin: 0;
+  color: var(--color-text-primary);
+  background: var(--color-bg-page);
+  transition: color 0.3s ease, background 0.3s ease;
 }
 
 button {

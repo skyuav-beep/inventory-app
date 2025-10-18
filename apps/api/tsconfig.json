@@ -7,7 +7,16 @@
     "baseUrl": ".",
     "incremental": true,
     "moduleResolution": "node",
-    "types": ["node"]
+    "types": ["node"],
+    "plugins": [
+      {
+        "name": "@nestjs/swagger/plugin",
+        "options": {
+          "classValidatorShim": true,
+          "introspectComments": true
+        }
+      }
+    ]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "test", "**/*.spec.ts"]

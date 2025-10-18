@@ -13,6 +13,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  color: #1f2933;
 }
 
 .sectionHeader {
@@ -147,6 +148,7 @@
   border: 1px solid rgba(148, 163, 184, 0.6);
   background: #ffffff;
   font-size: 14px;
+  color: #1f2933;
 }
 
 .emptyTargets {
@@ -304,6 +306,35 @@
   gap: 6px;
 }
 
+.userActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.userActionButton {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.userActionButton:hover {
+  background: rgba(37, 99, 235, 0.18);
+  transform: translateY(-1px);
+}
+
+.userActionButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .chip,
 .chipAccent {
   padding: 4px 10px;
@@ -367,6 +398,7 @@
   border: 1px solid rgba(148, 163, 184, 0.6);
   background: #ffffff;
   font-size: 14px;
+  color: #1f2933;
 }
 
 .permissionsHeader {

@@ -70,7 +70,7 @@ export class AuthService {
     }
 
     try {
-      return JSON.parse(JSON.stringify(value));
+      return JSON.parse(JSON.stringify(value)) as Prisma.JsonValue;
     } catch {
       return undefined;
     }

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppShell } from './shell/AppShell';
 import { AuthProvider } from './hooks/useAuth';
 import './styles/globals.css';
+import { ThemeProvider } from './hooks/useTheme';
 
 const rootElement = document.getElementById('root');
 
@@ -15,10 +16,12 @@ const root = ReactDOM.createRoot(rootElement);
 
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 );

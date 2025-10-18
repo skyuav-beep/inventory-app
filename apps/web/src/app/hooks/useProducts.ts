@@ -7,10 +7,12 @@ import {
   fetchProducts,
 } from '../../services/productService';
 
+export type ProductDisabledFilter = 'active' | 'with-disabled' | 'disabled';
+
 interface UseProductsFilters {
   search: string;
   status?: ProductStatus | 'all';
-  includeDisabled: boolean;
+  disabledFilter: ProductDisabledFilter;
 }
 
 interface UseProductsState {
@@ -21,7 +23,7 @@ interface UseProductsState {
   filters: UseProductsFilters;
   setSearch: (value: string) => void;
   setStatus: (value: ProductStatus | 'all') => void;
-  setIncludeDisabled: (value: boolean) => void;
+  setDisabledFilter: (value: ProductDisabledFilter) => void;
   setPage: (page: number) => void;
   refresh: () => void;
   summary: {
@@ -36,13 +38,14 @@ interface UseProductsState {
 const DEFAULT_PAGE = { page: 1, size: 20, total: 0 };
 
 export function useProducts(
-  initialFilters: Partial<UseProductsFilters> = { search: '', status: 'all', includeDisabled: false },
+  initialFilters: Partial<UseProductsFilters> = { search: '', status: 'all', disabledFilter: 'active' },
 ): UseProductsState {
   const mergedFilters: UseProductsFilters = {
     search: initialFilters.search ?? '',
     status: initialFilters.status ?? 'all',
-    includeDisabled: initialFilters.includeDisabled ?? false,
+    disabledFilter: initialFilters.disabledFilter ?? 'active',
   };
+
   const [items, setItems] = useState<ProductListItem[]>([]);
   const [pagination, setPagination] = useState<ProductListResponse['page']>(DEFAULT_PAGE);
   const [loading, setLoading] = useState(true);
@@ -60,8 +63,13 @@ export function useProducts(
       size: DEFAULT_PAGE.size,
       search: filters.search,
       status: filters.status && filters.status !== 'all' ? filters.status : undefined,
-      includeDisabled: filters.includeDisabled,
     };
+
+    if (filters.disabledFilter === 'disabled') {
+      params.disabled = true;
+    } else if (filters.disabledFilter === 'with-disabled') {
+      params.includeDisabled = true;
+    }
 
     try {
       const response = await fetchProducts(params);
@@ -75,7 +83,7 @@ export function useProducts(
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.status, filters.includeDisabled, page]);
+  }, [filters.search, filters.status, filters.disabledFilter, page]);
 
   useEffect(() => {
     void loadProducts();
@@ -91,8 +99,8 @@ export function useProducts(
     setPageState(1);
   }, []);
 
-  const setIncludeDisabled = useCallback((value: boolean) => {
-    setFilters((prev) => ({ ...prev, includeDisabled: value }));
+  const setDisabledFilter = useCallback((value: ProductDisabledFilter) => {
+    setFilters((prev) => ({ ...prev, disabledFilter: value }));
     setPageState(1);
   }, []);
 
@@ -115,9 +123,11 @@ export function useProducts(
         } else {
           acc.normal += 1;
         }
+
         if (product.disabled) {
           acc.disabled += 1;
         }
+
         return acc;
       },
       {
@@ -140,7 +150,7 @@ export function useProducts(
     filters,
     setSearch,
     setStatus,
-    setIncludeDisabled,
+    setDisabledFilter,
     setPage: handleSetPage,
     refresh,
     summary,

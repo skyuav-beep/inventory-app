@@ -37,6 +37,12 @@ export interface CreateUserPayload {
   permissions?: PermissionDefinition[];
 }
 
+export interface UpdateUserPayload {
+  name?: string;
+  role?: Role;
+  permissions?: PermissionDefinition[];
+}
+
 export async function fetchUsers(params: { page?: number; size?: number } = {}): Promise<UserListResponse> {
   const searchParams = new URLSearchParams();
 
@@ -61,6 +67,13 @@ export async function fetchPermissionTemplates(): Promise<PermissionTemplatesRes
 export async function createUser(payload: CreateUserPayload): Promise<UserListItem> {
   return apiFetch<UserListItem>('/api/v1/users', {
     method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateUser(id: string, payload: UpdateUserPayload): Promise<UserListItem> {
+  return apiFetch<UserListItem>(`/api/v1/users/${id}`, {
+    method: 'PATCH',
     body: JSON.stringify(payload),
   });
 }

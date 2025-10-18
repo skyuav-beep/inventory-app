@@ -4,7 +4,8 @@
 // ---------------------------------------------------------
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl", "debian-openssl-1.1.x"]
 }
 
 datasource db {
@@ -37,6 +38,13 @@ enum ProductStatus {
 enum ReturnStatus {
   pending
   completed
+}
+
+enum OutboundStatus {
+  shipped
+  in_transit
+  delivered
+  returned
 }
 
 enum AuditAction {
@@ -151,9 +159,21 @@ model Outbound {
   productId String
   quantity  Int
   dateOut   DateTime
+  status    OutboundStatus @default(shipped)
   note      String?
+  orderDate DateTime?
+  ordererId String?
+  ordererName String?
+  recipientName String?
+  recipientPhone String?
+  recipientAddress String?
+  recipientPostalCode String?
+  customsNumber String?
+  invoiceNumber String?
 
   createdAt DateTime @default(now())
+
+  returns   ReturnRecord[]
 
   @@map("outbounds")
   @@index([productId, dateOut])
@@ -167,11 +187,15 @@ model ReturnRecord {
   dateReturn  DateTime
   reason      String
   status      ReturnStatus  @default(pending)
+  outboundId  String?
+
+  outbound    Outbound?     @relation(fields: [outboundId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime      @default(now())
 
   @@map("returns")
   @@index([productId, dateReturn])
+  @@index([outboundId])
 }
 
 model Alert {
@@ -215,7 +239,7 @@ model NotificationSetting {
 }
 
 model AuditLog {
-  id          String       @id @default(cuid())
+  id          String       @id @default(dbgenerated("gen_random_uuid()"))
   user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   userId      String?
   resource    Resource
@@ -224,7 +248,7 @@ model AuditLog {
   payloadJson Json?
   ipAddress   String?
   userAgent   String?
-  createdAt   DateTime     @default(now())
+  createdAt   DateTime     @default(dbgenerated("now()")) @db.Timestamptz(6)
 
   @@map("audit_logs")
   @@index([resource, action, createdAt])

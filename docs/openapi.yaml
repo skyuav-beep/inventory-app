@@ -130,6 +130,45 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+  /users/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Users]
+      summary: 사용자 권한 수정
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                role:
+                  $ref: '#/components/schemas/Role'
+                permissions:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Permission'
+      responses:
+        '200':
+          description: 사용자 수정 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /permissions/resources:
     get:
       tags: [Permissions]
@@ -619,7 +658,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Return'
+              type: object
+              required: [productId, quantity, reason]
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                dateReturn:
+                  type: string
+                  format: date-time
+                status:
+                  type: string
+                  enum: [pending, completed]
+                  default: pending
+                outboundId:
+                  type: string
+                  nullable: true
       responses:
         '201':
           description: 반품 등록 완료
@@ -669,10 +727,13 @@ paths:
                   type: string
                 dateReturn:
                   type: string
-                  format: date
+                  format: date-time
                 status:
                   type: string
                   enum: [pending, completed]
+                outboundId:
+                  type: string
+                  nullable: true
       responses:
         '200':
           description: 반품 수정 완료
@@ -1175,19 +1236,39 @@ components:
           type: string
         productId:
           type: string
+        productCode:
+          type: string
+        productName:
+          type: string
         quantity:
           type: integer
           minimum: 1
         dateReturn:
           type: string
-          format: date
+          format: date-time
+        dateOut:
+          type: string
+          format: date-time
+          nullable: true
         reason:
           type: string
         status:
           type: string
           enum: [pending, completed]
           default: pending
-      required: [productId, quantity, dateReturn, reason]
+        ordererId:
+          type: string
+          nullable: true
+        ordererName:
+          type: string
+          nullable: true
+        outboundId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, productId, productCode, productName, quantity, dateReturn, reason, status]
     DashboardSummary:
       type: object
       properties:

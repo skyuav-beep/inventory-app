@@ -17,3 +17,4 @@ coverage/
 .DS_Store
 *.sqlite
 /.turbo/
+backups/

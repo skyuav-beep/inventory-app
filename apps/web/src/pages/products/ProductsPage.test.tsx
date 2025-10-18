@@ -48,10 +48,10 @@ const createProductsState = (overrides: Partial<ProductsState> = {}): ProductsSt
   pagination: { page: 1, size: 20, total: 1 },
   loading: false,
   error: null,
-  filters: { search: '', status: 'all', includeDisabled: false },
+  filters: { search: '', status: 'all', disabledFilter: 'active' },
   setSearch: vi.fn(),
   setStatus: vi.fn(),
-  setIncludeDisabled: vi.fn(),
+  setDisabledFilter: vi.fn(),
   setPage: vi.fn(),
   refresh: vi.fn(),
   summary: { total: 1, low: 0, warn: 1, normal: 0, disabled: 0 },
@@ -103,7 +103,7 @@ describe('ProductsPage', () => {
     const codeInput = await screen.findByLabelText('제품 코드');
     expect(codeInput).toHaveAttribute('readonly');
 
-    const searchInput = screen.getByPlaceholderText('제품 코드 또는 이름으로 검색') as HTMLInputElement;
+    const searchInput = screen.getByPlaceholderText<HTMLInputElement>('제품 코드 또는 이름으로 검색');
     expect(searchInput.value).toBe('');
   });
 
@@ -116,6 +116,20 @@ describe('ProductsPage', () => {
 
     expect(screen.getByRole('button', { name: '제품 등록' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '템플릿 다운로드' })).toBeEnabled();
+  });
+
+  it('사용 상태 필터를 변경할 수 있다', async () => {
+    const state = createProductsState();
+    useProductsMock.mockReturnValue(state);
+    useAuthMock.mockReturnValue(createAuthValue(true));
+
+    const user = userEvent.setup();
+    render(<ProductsPage />);
+
+    const filterSelect = screen.getByLabelText('사용 상태 필터');
+    await user.selectOptions(filterSelect, '사용 중지 제품만');
+
+    expect(state.setDisabledFilter).toHaveBeenCalledWith('disabled');
   });
 
   it('로딩 중 메시지를 표시한다', () => {
@@ -161,7 +175,7 @@ describe('ProductsPage', () => {
     await user.click(editButton);
 
     expect(screen.getByRole('heading', { name: '제품 수정' })).toBeInTheDocument();
-    const nameInput = screen.getByLabelText('제품명') as HTMLInputElement;
+    const nameInput = screen.getByLabelText<HTMLInputElement>('제품명');
     await user.clear(nameInput);
     await user.type(nameInput, '수정 제품');
 
@@ -173,6 +187,48 @@ describe('ProductsPage', () => {
       expect(updateProductMock).toHaveBeenCalledWith(
         'p-1',
         expect.objectContaining({ name: '수정 제품' }),
+      );
+    });
+    expect(state.refresh).toHaveBeenCalled();
+  });
+
+  it('사용 중지된 제품을 재개할 수 있다', async () => {
+    const disabledProduct = {
+      id: 'p-2',
+      code: 'SKU-002',
+      name: '중지 제품',
+      description: '설명',
+      specification: '5x5',
+      unit: 'EA',
+      safetyStock: 5,
+      remain: 0,
+      status: 'low' as const,
+      totalIn: 10,
+      totalOut: 10,
+      totalReturn: 0,
+      disabled: true,
+    };
+
+    const state = createProductsState({
+      items: [disabledProduct],
+      summary: { total: 1, low: 1, warn: 0, normal: 0, disabled: 1 },
+    });
+
+    useProductsMock.mockReturnValue(state);
+    useAuthMock.mockReturnValue(createAuthValue(true));
+    updateProductMock.mockResolvedValue({ ...disabledProduct, disabled: false });
+
+    const user = userEvent.setup();
+    render(<ProductsPage />);
+
+    const row = screen.getByRole('row', { name: /중지 제품/ });
+    const resumeButton = within(row).getByRole('button', { name: '사용 재개' });
+    await user.click(resumeButton);
+
+    await waitFor(() => {
+      expect(updateProductMock).toHaveBeenCalledWith(
+        'p-2',
+        expect.objectContaining({ disabled: false }),
       );
     });
     expect(state.refresh).toHaveBeenCalled();

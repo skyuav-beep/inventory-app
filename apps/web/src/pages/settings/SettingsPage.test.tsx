@@ -36,6 +36,9 @@ const useAuthMock = vi.mocked(useAuth);
 const useUsersMock = vi.mocked(useUsers);
 const fetchTelegramSettingsMock = vi.mocked(fetchTelegramSettings);
 const fetchPermissionTemplatesMock = vi.mocked(fetchPermissionTemplates);
+const updateTelegramSettingsMock = vi.mocked(updateTelegramSettings);
+const sendCustomAlertMock = vi.mocked(sendCustomAlert);
+const sendTestAlertMock = vi.mocked(sendTestAlert);
 const createUserMock = vi.mocked(createUser);
 
 type UsersState = ReturnType<typeof useUsers>;
@@ -89,7 +92,7 @@ describe('SettingsPage - 사용자 권한 관리', () => {
       targets: [],
       updatedAt: new Date().toISOString(),
     });
-    updateTelegramSettings.mockResolvedValue({
+    updateTelegramSettingsMock.mockResolvedValue({
       enabled: true,
       botToken: 'mock-token',
       cooldownMinutes: 30,
@@ -97,11 +100,11 @@ describe('SettingsPage - 사용자 권한 관리', () => {
       targets: [],
       updatedAt: new Date().toISOString(),
     });
-    sendTestAlert.mockResolvedValue({
+    sendTestAlertMock.mockResolvedValue({
       success: true,
       decision: { reason: 'ok', canSend: true },
     });
-    sendCustomAlert.mockResolvedValue({
+    sendCustomAlertMock.mockResolvedValue({
       success: true,
       decision: { reason: 'ok', canSend: true },
     });
@@ -112,6 +115,9 @@ describe('SettingsPage - 사용자 권한 관리', () => {
     useAuthMock.mockReset();
     fetchPermissionTemplatesMock.mockReset();
     createUserMock.mockReset();
+    updateTelegramSettingsMock.mockReset();
+    sendTestAlertMock.mockReset();
+    sendCustomAlertMock.mockReset();
   });
 
   it('사용자 목록과 권한 정보를 렌더링한다', async () => {

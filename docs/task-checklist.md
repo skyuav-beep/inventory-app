@@ -16,7 +16,7 @@
 - [x] Products/Inbounds/Outbounds/Returns 모듈 CRUD 구현
 - [x] Dashboard 요약 및 Alerts/Notifications 서비스 구현
 - [x] 업로드(Excel/CSV) 처리 및 워커 구성
-- [ ] 유닛/통합 테스트(Jest) 작성 및 `npm run test` 정비
+- [x] 유닛/통합 테스트(Jest) 작성 및 `npm run test` 정비
 
 ## 프런트엔드 / Frontend (React/Vite)
 
@@ -25,7 +25,7 @@
 - [x] 제품·입고·출고·반품 화면 UI/스토어 구현
 - [x] 대시보드 차트 및 부족품목 배너 구현
 - [x] 업로드 흐름 및 결과 리포트 UI 구현
-- [ ] Vitest + Testing Library 설정 및 주요 화면 테스트 작성
+- [x] Vitest + Testing Library 설정 및 주요 화면 테스트 작성
 
 ## 문서 & 운영 / Documentation & Ops
 

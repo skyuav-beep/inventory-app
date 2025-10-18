@@ -9,6 +9,20 @@ import { Request, Response } from 'express';
 import { Observable, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
 
+interface ErrorWithStatus {
+  status?: number;
+}
+
+function extractStatusFromError(error: unknown): number | undefined {
+  if (typeof error === 'object' && error !== null && 'status' in error) {
+    const candidate = (error as ErrorWithStatus).status;
+    if (typeof candidate === 'number') {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
 @Injectable()
 export class RequestLoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('HTTP');
@@ -28,7 +42,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
       catchError((error: unknown) => {
         const response = context.switchToHttp().getResponse<Response>();
         const status =
-          response?.statusCode ?? (typeof (error as any)?.status === 'number' ? (error as any).status : 500);
+          response?.statusCode ?? extractStatusFromError(error) ?? 500;
         const duration = Date.now() - startedAt;
         const message = error instanceof Error ? error.message : String(error);
         const stack = error instanceof Error ? error.stack : undefined;

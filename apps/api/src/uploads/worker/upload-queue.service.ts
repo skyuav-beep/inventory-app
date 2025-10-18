@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { InboundsService } from '../../inbounds/inbounds.service';
 import { OutboundsService } from '../../outbounds/outbounds.service';
 import { ProductsService } from '../../products/products.service';
-import { parseStockUpload } from '../utils/parse-stock-upload';
+import { parseStockUpload, ParsedStockRow } from '../utils/parse-stock-upload';
 import * as path from 'path';
 
 @Injectable()
@@ -69,11 +69,7 @@ export class UploadQueueService {
     return path.join(process.cwd(), 'storage', 'uploads', filename);
   }
 
-  private async persistItems(
-    jobId: string,
-    type: UploadType,
-    rows: Array<{ code: string; quantity: number; date: Date; note?: string }>,
-  ): Promise<void> {
+  private async persistItems(jobId: string, type: UploadType, rows: ParsedStockRow[]): Promise<void> {
     await this.prisma.uploadJobItem.deleteMany({ where: { jobId } });
 
     for (const [index, row] of rows.entries()) {
@@ -108,8 +104,17 @@ export class UploadQueueService {
           await this.outboundsService.create({
             productId: product.id,
             quantity: row.quantity,
-            dateOut: row.date,
+            dateOut: row.shipDate ?? row.date,
             note: row.note,
+            orderDate: row.orderDate,
+            ordererId: row.ordererId ?? undefined,
+            ordererName: row.ordererName ?? undefined,
+            recipientName: row.recipientName ?? undefined,
+            recipientPhone: row.recipientPhone ?? undefined,
+            recipientAddress: row.recipientAddress ?? undefined,
+            recipientPostalCode: row.recipientPostalCode ?? undefined,
+            customsNumber: row.customsNumber ?? undefined,
+            invoiceNumber: row.invoiceNumber ?? undefined,
           });
         }
 

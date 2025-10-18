@@ -1,0 +1,17 @@
+{
+  "color": {
+    "brand_primary": "#3e2833",
+    "brand_secondary": "#1c534f",
+    "accent_orange": "#615340",
+    "accent_yellow": "#e9c46a",
+    "accent_red": "#e76f51",
+    "surface": "#d8d9d7",
+    "surface_alt": "#f6f6f6",
+    "text_primary": "#221d23",
+    "text_inverse": "#ffffff",
+    "border": "#dddddd",
+    "success": "#2a9d8f",
+    "warning": "#e9c46a",
+    "danger": "#e63946"
+  }
+}

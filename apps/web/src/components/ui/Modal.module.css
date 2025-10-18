@@ -19,6 +19,7 @@
   flex-direction: column;
   width: 100%;
   max-width: 520px;
+  color: #0f172a;
 }
 
 .dialog.lg {

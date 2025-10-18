@@ -23,6 +23,33 @@ const mockSummary = {
       safetyStock: 20,
       remain: 5,
       status: 'low',
+      totalIn: 120,
+      totalOut: 100,
+      totalReturn: 5,
+    },
+  ],
+  stockByProduct: [
+    {
+      id: 'p-1',
+      code: 'SKU-001',
+      name: '테스트 제품',
+      safetyStock: 20,
+      remain: 50,
+      status: 'normal',
+      totalIn: 120,
+      totalOut: 70,
+      totalReturn: 5,
+    },
+    {
+      id: 'p-2',
+      code: 'SKU-002',
+      name: '경고 제품',
+      safetyStock: 30,
+      remain: 20,
+      status: 'warn',
+      totalIn: 90,
+      totalOut: 70,
+      totalReturn: 0,
     },
   ],
 };
@@ -67,6 +94,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('총 입고 수량')).toBeInTheDocument();
     expect(screen.getAllByText('테스트 제품').length).toBeGreaterThan(0);
     expect(screen.getByText('테스트 알림')).toBeInTheDocument();
+    expect(screen.getByRole('table', { name: '제품별 재고 현황' })).toBeInTheDocument();
+    expect(screen.getByText('경고 제품')).toBeInTheDocument();
   });
 
   it('실패 시 에러 메시지를 표시한다', async () => {

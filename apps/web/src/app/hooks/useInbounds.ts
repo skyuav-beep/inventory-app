@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FetchInboundsParams, InboundListItem, InboundListResponse, fetchInbounds } from '../../services/inboundService';
 
+const logError = (err: unknown) => {
+  if (err instanceof Error) {
+    console.error(err);
+  } else {
+    console.error(new Error(String(err)));
+  }
+};
+
 interface UseInboundsFilters {
   search: string;
 }
@@ -13,6 +21,7 @@ interface UseInboundsState {
   filters: UseInboundsFilters;
   setSearch: (value: string) => void;
   setPage: (page: number) => void;
+  refresh: () => void;
   summary: {
     totalQuantity: number;
     uniqueProducts: number;
@@ -41,7 +50,7 @@ export function useInbounds(initialFilters: UseInboundsFilters = { search: '' })
         setRawItems(response.data);
         setPagination(response.page);
       } catch (err) {
-        console.error(err);
+        logError(err);
         setRawItems([]);
         setPagination(DEFAULT_PAGE);
         setError('입고 내역을 불러오지 못했습니다.');

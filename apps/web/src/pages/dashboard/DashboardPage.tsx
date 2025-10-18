@@ -125,6 +125,51 @@ export function DashboardPage() {
     );
   };
 
+  const renderInventoryTable = (items: DashboardProductItem[]) => {
+    if (items.length === 0) {
+      return <p className={styles.emptyState}>등록된 제품이 없습니다.</p>;
+    }
+
+    return (
+      <div className={styles.inventoryTableWrapper}>
+        <table className={styles.inventoryTable} aria-label="제품별 재고 현황">
+          <thead>
+            <tr>
+              <th scope="col">제품명</th>
+              <th scope="col">제품코드</th>
+              <th scope="col">현재 재고</th>
+              <th scope="col">안전재고</th>
+              <th scope="col">누적 입고</th>
+              <th scope="col">누적 출고</th>
+              <th scope="col">누적 반품</th>
+              <th scope="col">상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <th scope="row">
+                  <div className={styles.inventoryProductName}>{item.name}</div>
+                </th>
+                <td className={styles.inventoryCode}>{item.code}</td>
+                <td>{item.remain.toLocaleString()}</td>
+                <td>{item.safetyStock.toLocaleString()}</td>
+                <td>{item.totalIn.toLocaleString()}</td>
+                <td>{item.totalOut.toLocaleString()}</td>
+                <td>{item.totalReturn.toLocaleString()}</td>
+                <td>
+                  <span className={styles.stockBadge} data-status={item.status}>
+                    {item.status === 'normal' ? '정상' : item.status === 'warn' ? '주의' : '부족'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const chartData = useMemo(() => {
     if (!summary) {
       return [];
@@ -218,6 +263,17 @@ export function DashboardPage() {
               </header>
               {renderAlertLogs(alerts)}
             </article>
+          </section>
+
+          <section className={styles.inventorySection}>
+            <header className={styles.inventoryHeader}>
+              <div>
+                <h3>제품별 재고 현황</h3>
+                <p>전체 제품의 현재 재고와 안전재고 충족 여부를 확인하세요.</p>
+              </div>
+              <span className={styles.panelBadge}>{summary?.stockByProduct.length ?? 0} 개</span>
+            </header>
+            {summary ? renderInventoryTable(summary.stockByProduct) : <p className={styles.emptyState}>데이터 없음</p>}
           </section>
         </>
       )}

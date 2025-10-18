@@ -11,6 +11,10 @@ export interface ReturnListItem {
   reason: string;
   status: ReturnStatus;
   dateReturn: string;
+  dateOut?: string | null;
+  ordererId?: string | null;
+  ordererName?: string | null;
+  outboundId?: string | null;
   createdAt: string;
 }
 
@@ -36,6 +40,16 @@ export interface CreateReturnPayload {
   reason: string;
   dateReturn?: string;
   status?: ReturnStatus;
+  outboundId?: string;
+}
+
+export interface UpdateReturnPayload {
+  productId?: string;
+  quantity?: number;
+  reason?: string;
+  dateReturn?: string;
+  status?: ReturnStatus;
+  outboundId?: string;
 }
 
 export async function fetchReturns(params: FetchReturnsParams = {}): Promise<ReturnListResponse> {
@@ -65,5 +79,18 @@ export async function createReturn(payload: CreateReturnPayload): Promise<Return
   return apiFetch<ReturnListItem>('/api/v1/returns', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updateReturn(id: string, payload: UpdateReturnPayload): Promise<ReturnListItem> {
+  return apiFetch<ReturnListItem>(`/api/v1/returns/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteReturn(id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/v1/returns/${id}`, {
+    method: 'DELETE',
   });
 }

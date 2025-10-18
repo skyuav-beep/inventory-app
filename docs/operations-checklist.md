@@ -30,7 +30,7 @@
 
 ### 3.2 백업 & 복구
 
-- [ ] PostgreSQL 백업 스케줄이 정의되어 있는지 확인합니다(예: `pg_dump` + S3, RDS 백업 등).
+- [ ] PostgreSQL 백업 스케줄이 정의되어 있는지 확인합니다(예: `pg_dump` + S3, RDS 백업 등). 수동 점검 시 `npm run backup:db -- --out-dir /var/backups/inventory` 로 최신 스냅샷을 생성해 보관합니다.
 - [ ] 백업 복구 연습을 정기적으로 수행해 스키마/데이터가 정상 복구되는지 검증합니다.
 - [ ] 복구 시 `.env`의 DB 접속 정보 변경 여부와 Prisma 마이그레이션 적용 순서를 확인합니다.
 

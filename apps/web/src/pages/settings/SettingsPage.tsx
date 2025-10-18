@@ -7,11 +7,26 @@ import {
   TelegramSettingsResponse,
   updateTelegramSettings,
 } from '../../services/settingsService';
-import { fetchPermissionTemplates, createUser, PermissionDefinition, Role, UserListItem } from '../../services/userService';
+import {
+  fetchPermissionTemplates,
+  createUser,
+  updateUser,
+  PermissionDefinition,
+  Role,
+  UserListItem,
+} from '../../services/userService';
 import { useUsers } from '../../app/hooks/useUsers';
 import { Modal } from '../../components/ui/Modal';
 import { useAuth } from '../../hooks/useAuth';
 import styles from './SettingsPage.module.css';
+
+const logError = (err: unknown) => {
+  if (err instanceof Error) {
+    console.error(err);
+  } else {
+    console.error(new Error(String(err)));
+  }
+};
 
 interface TargetFormState {
   key: string;
@@ -182,6 +197,8 @@ export function SettingsPage() {
   const [userSuccess, setUserSuccess] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [userModalOpen, setUserModalOpen] = useState(false);
+  const [userModalMode, setUserModalMode] = useState<'create' | 'edit'>('create');
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [userFormSubmitting, setUserFormSubmitting] = useState(false);
   const [userFormError, setUserFormError] = useState<string | null>(null);
   const resourceKeys = useMemo(() => Object.keys(RESOURCE_LABELS), []);
@@ -199,6 +216,16 @@ export function SettingsPage() {
     return Math.max(1, Math.ceil(usersPage.total / usersPage.size));
   }, [usersPage.size, usersPage.total]);
 
+  const userModalTitle = userModalMode === 'create' ? '새 사용자 초대' : '사용자 권한 수정';
+  const userSubmitLabel =
+    userModalMode === 'create'
+      ? userFormSubmitting
+        ? '생성 중...'
+        : '사용자 생성'
+      : userFormSubmitting
+      ? '수정 중...'
+      : '권한 저장';
+
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
@@ -207,7 +234,7 @@ export function SettingsPage() {
       setForm(mapSettingsToForm(settings));
       setUpdatedAt(settings.updatedAt);
     } catch (error) {
-      console.error(error);
+      logError(error);
       setLoadError('텔레그램 설정을 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
     } finally {
       setLoading(false);
@@ -277,7 +304,7 @@ export function SettingsPage() {
       setPermissionTemplates(response.data);
       setUserForm((prev) => createDefaultUserForm(prev.role, response.data, resourceKeys));
     } catch (error) {
-      console.error(error);
+      logError(error);
       setPermissionTemplatesError('권한 템플릿을 불러오지 못했습니다. 다시 시도해 주세요.');
     } finally {
       setPermissionTemplatesLoading(false);
@@ -288,7 +315,37 @@ export function SettingsPage() {
     setUserFormError(null);
     setUserError(null);
     setUserSuccess(null);
+    setUserModalMode('create');
+    setEditingUserId(null);
     setUserForm(createDefaultUserForm(DEFAULT_ROLE, permissionTemplates, resourceKeys));
+    setUserModalOpen(true);
+  };
+
+  const openEditUserModal = (userItem: UserListItem) => {
+    setUserFormError(null);
+    setUserError(null);
+    setUserSuccess(null);
+    const basePermissions = clonePermissions(userItem.role, permissionTemplates, resourceKeys);
+    const mergedPermissions = basePermissions.map((permission) => {
+      const existing = userItem.permissions.find((item) => item.resource === permission.resource);
+      return existing
+        ? {
+            resource: existing.resource,
+            read: existing.read,
+            write: existing.write,
+          }
+        : permission;
+    });
+
+    setUserForm({
+      email: userItem.email,
+      name: userItem.name,
+      role: userItem.role,
+      password: '',
+      permissions: mergedPermissions,
+    });
+    setUserModalMode('edit');
+    setEditingUserId(userItem.id);
     setUserModalOpen(true);
   };
 
@@ -297,6 +354,10 @@ export function SettingsPage() {
       return;
     }
     setUserModalOpen(false);
+    setUserModalMode('create');
+    setEditingUserId(null);
+    setUserForm(createDefaultUserForm(DEFAULT_ROLE, permissionTemplates, resourceKeys));
+    setUserFormError(null);
   };
 
   useEffect(() => {
@@ -350,18 +411,12 @@ export function SettingsPage() {
     }));
   };
 
-  const sanitizeUserForm = (formState: UserFormState) => {
-    return {
-      email: formState.email.trim(),
-      name: formState.name.trim(),
-      password: formState.password,
-      role: formState.role,
-      permissions: formState.permissions.map((permission) => ({
-        resource: permission.resource,
-        read: permission.read || permission.write,
-        write: permission.write,
-      })),
-    };
+  const buildPermissionsPayload = (permissions: PermissionDefinition[]) => {
+    return permissions.map((permission) => ({
+      resource: permission.resource,
+      read: permission.read || permission.write,
+      write: permission.write,
+    }));
   };
 
   const handleSubmitUserForm = async (event?: FormEvent<HTMLFormElement>) => {
@@ -380,22 +435,52 @@ export function SettingsPage() {
       return;
     }
 
-    if (userForm.password.length < 8) {
+    if (userModalMode === 'create' && userForm.password.length < 8) {
       setUserFormError('비밀번호는 8자 이상이어야 합니다.');
       return;
     }
 
     try {
       setUserFormSubmitting(true);
-      const payload = sanitizeUserForm(userForm);
-      await createUser(payload);
-      setUserSuccess('새 사용자를 초대했습니다.');
+      const permissionsPayload = buildPermissionsPayload(userForm.permissions);
+
+      if (userModalMode === 'edit') {
+        if (!editingUserId) {
+          setUserFormError('수정할 사용자를 찾을 수 없습니다. 다시 시도해 주세요.');
+          return;
+        }
+
+        await updateUser(editingUserId, {
+          name: trimmedName,
+          role: userForm.role,
+          permissions: permissionsPayload,
+        });
+
+        setUserSuccess('사용자 권한을 수정했습니다.');
+      } else {
+        await createUser({
+          email: trimmedEmail,
+          name: trimmedName,
+          password: userForm.password,
+          role: userForm.role,
+          permissions: permissionsPayload,
+        });
+
+        setUserSuccess('새 사용자를 초대했습니다.');
+      }
+
       setUserModalOpen(false);
+      setUserModalMode('create');
+      setEditingUserId(null);
       setUserForm(createDefaultUserForm(DEFAULT_ROLE, permissionTemplates, resourceKeys));
       refreshUsers();
     } catch (error) {
-      console.error(error);
-      setUserFormError('사용자 생성 중 오류가 발생했습니다. 입력값을 확인한 뒤 다시 시도해 주세요.');
+      logError(error);
+      setUserFormError(
+        userModalMode === 'edit'
+          ? '사용자 수정 중 오류가 발생했습니다. 입력값을 확인한 뒤 다시 시도해 주세요.'
+          : '사용자 생성 중 오류가 발생했습니다. 입력값을 확인한 뒤 다시 시도해 주세요.',
+      );
     } finally {
       setUserFormSubmitting(false);
     }
@@ -444,7 +529,7 @@ export function SettingsPage() {
       setUpdatedAt(response.updatedAt);
       setSaveSuccess('텔레그램 설정을 저장했습니다.');
     } catch (error) {
-      console.error(error);
+      logError(error);
       setSaveError('설정을 저장하지 못했습니다. 입력값을 확인한 뒤 다시 시도해 주세요.');
     } finally {
       setSaving(false);
@@ -471,7 +556,7 @@ export function SettingsPage() {
         message: buildPolicyFeedback(response.decision),
       });
     } catch (error) {
-      console.error(error);
+      logError(error);
       setTestFeedback({
         variant: 'error',
         message: '테스트 알림을 요청하지 못했습니다. 봇 토큰과 네트워크 상태를 확인하세요.',
@@ -507,7 +592,7 @@ export function SettingsPage() {
         });
       }
     } catch (error) {
-      console.error(error);
+      logError(error);
       setCustomFeedback({
         variant: 'error',
         message: '메시지를 전송하지 못했습니다. 설정을 확인한 뒤 다시 시도해 주세요.',
@@ -754,6 +839,7 @@ export function SettingsPage() {
                   <th>역할</th>
                   <th>읽기 권한</th>
                   <th>쓰기 권한</th>
+                  {canManageUsers && <th>작업</th>}
                 </tr>
               </thead>
               <tbody>
@@ -792,6 +878,19 @@ export function SettingsPage() {
                               ))}
                         </div>
                       </td>
+                      {canManageUsers && (
+                        <td>
+                          <div className={styles.userActions}>
+                            <button
+                              type="button"
+                              className={styles.userActionButton}
+                              onClick={() => openEditUserModal(userItem)}
+                            >
+                              권한 수정
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -828,20 +927,20 @@ export function SettingsPage() {
       <Modal
         open={userModalOpen}
         onClose={handleCloseUserModal}
-        title="새 사용자 초대"
+        title={userModalTitle}
         size="lg"
         footer={
           <>
             <button type="button" className={styles.secondaryButton} onClick={handleCloseUserModal} disabled={userFormSubmitting}>
               취소
             </button>
-            <button type="submit" form="user-create-form" className={styles.primaryButton} disabled={userFormSubmitting}>
-              {userFormSubmitting ? '생성 중...' : '사용자 생성'}
+            <button type="submit" form="user-form" className={styles.primaryButton} disabled={userFormSubmitting}>
+              {userSubmitLabel}
             </button>
           </>
         }
       >
-        <form id="user-create-form" className={styles.userForm} onSubmit={handleSubmitUserForm}>
+        <form id="user-form" className={styles.userForm} onSubmit={handleSubmitUserForm}>
           <div className={styles.modalGrid}>
             <div className={styles.modalField}>
               <label htmlFor="user-email">이메일</label>
@@ -852,6 +951,7 @@ export function SettingsPage() {
                 onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
                 placeholder="user@example.com"
                 required
+                disabled={userModalMode === 'edit'}
               />
             </div>
             <div className={styles.modalField}>
@@ -873,18 +973,20 @@ export function SettingsPage() {
                 <option value="viewer">열람자</option>
               </select>
             </div>
-            <div className={styles.modalField}>
-              <label htmlFor="user-password">임시 비밀번호</label>
-              <input
-                id="user-password"
-                type="password"
-                value={userForm.password}
-                onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
-                placeholder="최소 8자, 영문/숫자 혼합"
-                minLength={8}
-                required
-              />
-            </div>
+            {userModalMode === 'create' && (
+              <div className={styles.modalField}>
+                <label htmlFor="user-password">임시 비밀번호</label>
+                <input
+                  id="user-password"
+                  type="password"
+                  value={userForm.password}
+                  onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
+                  placeholder="최소 8자, 영문/숫자 혼합"
+                  minLength={8}
+                  required
+                />
+              </div>
+            )}
           </div>
 
           <div className={styles.permissionsHeader}>

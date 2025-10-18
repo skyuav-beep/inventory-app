@@ -64,6 +64,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  color: #1f2933;
 }
 
 .summaryTitle {
@@ -147,10 +148,12 @@
   padding: 16px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   overflow-x: auto;
+  color: #1f2933;
 }
 
 .tableWrapper table {
   width: 100%;
+  min-width: 1200px;
   border-collapse: collapse;
   font-size: 14px;
 }
@@ -162,8 +165,51 @@
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.tableWrapper th {
+  white-space: nowrap;
+}
+
 .tableWrapper tbody tr:hover {
   background: rgba(99, 102, 241, 0.06);
+}
+
+.actionCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.actionButton {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.actionButton:hover {
+  background: #e0e7ff;
+  transform: translateY(-1px);
+}
+
+.actionButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  background: #e0e7ff;
+}
+
+.actionButtonDanger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.actionButtonDanger:hover {
+  background: #fecaca;
 }
 
 .loadingRow td,
