@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UploadStatus, UploadType } from '@prisma/client';
+import { Prisma, UploadStatus, UploadType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InboundsService } from '../../inbounds/inbounds.service';
 import { OutboundsService } from '../../outbounds/outbounds.service';
@@ -83,7 +83,7 @@ export class UploadQueueService {
         data: {
           jobId,
           rowNo: index + 1,
-          payloadJson: row,
+          payloadJson: this.serializeRow(row),
           status: UploadStatus.processing,
         },
       });
@@ -139,5 +139,26 @@ export class UploadQueueService {
         });
       }
     }
+  }
+
+  private serializeRow(row: ParsedStockRow): Prisma.JsonObject {
+    return {
+      code: row.code,
+      quantity: row.quantity,
+      date: row.date.toISOString(),
+      shipDate: row.shipDate ? row.shipDate.toISOString() : null,
+      orderDate: row.orderDate ? row.orderDate.toISOString() : null,
+      note: row.note ?? null,
+      productName: row.productName ?? null,
+      unit: row.unit ?? null,
+      ordererId: row.ordererId ?? null,
+      ordererName: row.ordererName ?? null,
+      recipientName: row.recipientName ?? null,
+      recipientPhone: row.recipientPhone ?? null,
+      recipientAddress: row.recipientAddress ?? null,
+      recipientPostalCode: row.recipientPostalCode ?? null,
+      customsNumber: row.customsNumber ?? null,
+      invoiceNumber: row.invoiceNumber ?? null,
+    };
   }
 }
