@@ -52,7 +52,12 @@ export function LoginPage() {
 
         <label className={styles.field}>
           <span>비밀번호</span>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </label>
 
         <button type="submit" className={styles.primaryButton} disabled={loading}>

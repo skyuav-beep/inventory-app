@@ -92,7 +92,12 @@ export class AlertsService {
       message,
     });
 
-    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, message);
+    await this.deliverViaTelegram(
+      settings.telegramBotToken,
+      settings.telegramEnabled,
+      settings.telegramTargets,
+      message,
+    );
 
     return {
       decision,
@@ -100,7 +105,9 @@ export class AlertsService {
     };
   }
 
-  async notifyLowStock(product: Pick<ProductEntity, 'id' | 'name' | 'code' | 'remain' | 'safetyStock'>): Promise<AlertSendResult> {
+  async notifyLowStock(
+    product: Pick<ProductEntity, 'id' | 'name' | 'code' | 'remain' | 'safetyStock'>,
+  ): Promise<AlertSendResult> {
     const message = buildLowStockAlertMessage(product);
 
     const decision = await this.policy.decideSend({
@@ -131,7 +138,12 @@ export class AlertsService {
       message,
     });
 
-    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, message);
+    await this.deliverViaTelegram(
+      settings.telegramBotToken,
+      settings.telegramEnabled,
+      settings.telegramTargets,
+      message,
+    );
 
     return {
       decision,
@@ -173,7 +185,12 @@ export class AlertsService {
       message: finalMessage,
     });
 
-    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, finalMessage);
+    await this.deliverViaTelegram(
+      settings.telegramBotToken,
+      settings.telegramEnabled,
+      settings.telegramTargets,
+      finalMessage,
+    );
 
     return {
       decision,
@@ -222,7 +239,9 @@ export class AlertsService {
     });
   }
 
-  async processPendingAlert(alertId: string): Promise<'sent' | 'rescheduled' | 'skipped' | 'aborted'> {
+  async processPendingAlert(
+    alertId: string,
+  ): Promise<'sent' | 'rescheduled' | 'skipped' | 'aborted'> {
     const alert = await this.prisma.alert.findUnique({
       where: { id: alertId },
       include: { product: true },
@@ -273,7 +292,12 @@ export class AlertsService {
     const settings = await this.settingsService.getRawSettings();
     const message = alert.message;
 
-    await this.deliverViaTelegram(settings.telegramBotToken, settings.telegramEnabled, settings.telegramTargets, message);
+    await this.deliverViaTelegram(
+      settings.telegramBotToken,
+      settings.telegramEnabled,
+      settings.telegramTargets,
+      message,
+    );
 
     await this.prisma.alert.update({
       where: { id: alertId },

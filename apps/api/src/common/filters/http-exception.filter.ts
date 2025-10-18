@@ -61,10 +61,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     };
 
     const stack = exception instanceof Error ? exception.stack : undefined;
-    this.logger.error(
-      `${request.method} ${payload.path} ${status} :: ${payload.message}`,
-      stack,
-    );
+    this.logger.error(`${request.method} ${payload.path} ${status} :: ${payload.message}`, stack);
 
     response.status(status).json(payload);
   }

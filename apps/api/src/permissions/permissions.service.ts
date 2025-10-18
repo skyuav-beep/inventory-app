@@ -27,9 +27,7 @@ export class PermissionsService {
     resource: Resource,
     action: PermissionAction,
   ): boolean {
-    const permission = permissions.find(
-      (item) => item.resource === resource,
-    );
+    const permission = permissions.find((item) => item.resource === resource);
 
     if (!permission) {
       return false;
@@ -70,8 +68,7 @@ export class PermissionsService {
     });
 
     return defaults.map(
-      (defaultPermission) =>
-        overrides.get(defaultPermission.resource) ?? defaultPermission,
+      (defaultPermission) => overrides.get(defaultPermission.resource) ?? defaultPermission,
     );
   }
 

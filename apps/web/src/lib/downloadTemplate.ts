@@ -5,7 +5,11 @@ function escapeCsvValue(value: string): string {
   return value;
 }
 
-export function downloadCsvTemplate(filename: string, headers: string[], rows: Array<string[]> = []): void {
+export function downloadCsvTemplate(
+  filename: string,
+  headers: string[],
+  rows: Array<string[]> = [],
+): void {
   const csvLines = [headers.map(escapeCsvValue).join(',')];
   rows.forEach((row) => {
     csvLines.push(row.map((cell) => escapeCsvValue(cell ?? '')).join(','));

@@ -101,7 +101,9 @@ const buildFormStateFromOutbound = (outbound: OutboundListItem): OutboundFormSta
   productId: outbound.productId,
   quantity: String(outbound.quantity),
   orderDate: outbound.orderDate ? formatDateTimeLocal(new Date(outbound.orderDate)) : '',
-  dateOut: outbound.dateOut ? formatDateTimeLocal(new Date(outbound.dateOut)) : formatDateTimeLocal(new Date()),
+  dateOut: outbound.dateOut
+    ? formatDateTimeLocal(new Date(outbound.dateOut))
+    : formatDateTimeLocal(new Date()),
   status: outbound.status,
   ordererId: outbound.ordererId ?? '',
   ordererName: outbound.ordererName ?? '',
@@ -129,7 +131,18 @@ const createDefaultReturnForm = (outbound?: OutboundListItem): ReturnFormState =
 export function OutboundsPage() {
   const { hasPermission } = useAuth();
   const canRegisterOutbound = hasPermission('outbounds', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setStatus, setPage, refresh, summary } = useOutbounds({
+  const {
+    items,
+    pagination,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setStatus,
+    setPage,
+    refresh,
+    summary,
+  } = useOutbounds({
     search: '',
     status: 'all',
   });
@@ -248,7 +261,9 @@ export function OutboundsPage() {
     setFormError(null);
   };
 
-  const handleFormChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = event.target;
     setFormError(null);
     setFormState((prev) => ({
@@ -312,7 +327,9 @@ export function OutboundsPage() {
       refresh();
     } catch (err) {
       const fallbackMessage =
-        modalMode === 'edit' ? '출고 수정 중 오류가 발생했습니다.' : '출고 등록 중 오류가 발생했습니다.';
+        modalMode === 'edit'
+          ? '출고 수정 중 오류가 발생했습니다.'
+          : '출고 등록 중 오류가 발생했습니다.';
       const message = err instanceof Error ? err.message : fallbackMessage;
       logError(err);
       setFormError(message);
@@ -409,9 +426,7 @@ export function OutboundsPage() {
     setReturnForm(createDefaultReturnForm());
   };
 
-  const handleReturnFormChange = (
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
+  const handleReturnFormChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     setReturnError(null);
     setReturnForm((prev) => ({
@@ -453,7 +468,9 @@ export function OutboundsPage() {
         quantity: quantityValue,
         reason,
         status: 'completed',
-        dateReturn: returnForm.dateReturn ? new Date(returnForm.dateReturn).toISOString() : undefined,
+        dateReturn: returnForm.dateReturn
+          ? new Date(returnForm.dateReturn).toISOString()
+          : undefined,
       });
 
       await updateOutbound(returningOutbound.id, { status: 'returned' });
@@ -479,8 +496,8 @@ export function OutboundsPage() {
       ? '수정 중...'
       : '등록 중...'
     : modalMode === 'edit'
-    ? '수정'
-    : '등록';
+      ? '수정'
+      : '등록';
 
   const returnSubmitLabel = returnSubmitting ? '반품 처리 중...' : '반품 처리';
 
@@ -611,7 +628,9 @@ export function OutboundsPage() {
             ) : (
               items.map((outbound) => (
                 <tr key={outbound.id}>
-                  <td>{outbound.orderDate ? new Date(outbound.orderDate).toLocaleString() : '-'}</td>
+                  <td>
+                    {outbound.orderDate ? new Date(outbound.orderDate).toLocaleString() : '-'}
+                  </td>
                   <td>{new Date(outbound.dateOut).toLocaleString()}</td>
                   <td>{outbound.ordererId ?? '-'}</td>
                   <td>{outbound.ordererName ?? '-'}</td>
@@ -626,7 +645,9 @@ export function OutboundsPage() {
                   <td>{outbound.customsNumber ?? '-'}</td>
                   <td>{outbound.invoiceNumber ?? '-'}</td>
                   <td>
-                    <span className={`${styles.statusBadge} ${getStatusBadgeClass(outbound.status)}`}>
+                    <span
+                      className={`${styles.statusBadge} ${getStatusBadgeClass(outbound.status)}`}
+                    >
                       {statusLabelMap[outbound.status] ?? outbound.status}
                     </span>
                   </td>
@@ -653,7 +674,9 @@ export function OutboundsPage() {
                             (returnSubmitting && returningOutbound?.id === outbound.id)
                           }
                         >
-                          {returnSubmitting && returningOutbound?.id === outbound.id ? '반품 중...' : '반품'}
+                          {returnSubmitting && returningOutbound?.id === outbound.id
+                            ? '반품 중...'
+                            : '반품'}
                         </button>
                         <button
                           type="button"
@@ -731,8 +754,7 @@ export function OutboundsPage() {
                   value={product.id}
                   disabled={modalMode === 'create' && product.disabled}
                 >
-                  {product.name} ({product.code})
-                  {product.unit ? ` · ${product.unit}` : ''}
+                  {product.name} ({product.code}){product.unit ? ` · ${product.unit}` : ''}
                   {product.specification ? ` · ${product.specification}` : ''}
                   {product.disabled ? ' · 비활성화' : ''}
                 </option>
@@ -957,7 +979,9 @@ export function OutboundsPage() {
               required
             />
             {returningOutbound && (
-              <p className={styles.helperText}>최대 {returningOutbound.quantity.toLocaleString()} EA</p>
+              <p className={styles.helperText}>
+                최대 {returningOutbound.quantity.toLocaleString()} EA
+              </p>
             )}
           </div>
           <div className={styles.formField}>

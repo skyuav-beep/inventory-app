@@ -1,6 +1,15 @@
 import { ReturnStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional, IsPositive, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateReturnDto {
   @IsOptional()

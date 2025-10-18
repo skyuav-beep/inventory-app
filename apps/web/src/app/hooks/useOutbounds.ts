@@ -46,25 +46,22 @@ export function useOutbounds(
   const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
-  const loadOutbounds = useCallback(
-    async (params: FetchOutboundsParams) => {
-      setLoading(true);
-      setError(null);
+  const loadOutbounds = useCallback(async (params: FetchOutboundsParams) => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetchOutbounds(params);
-        setRawItems(response.data);
-        setPagination(response.page);
-      } catch (err) {
-        setRawItems([]);
-        setPagination(DEFAULT_PAGE);
-        setError('출고 내역을 불러오지 못했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+    try {
+      const response = await fetchOutbounds(params);
+      setRawItems(response.data);
+      setPagination(response.page);
+    } catch (err) {
+      setRawItems([]);
+      setPagination(DEFAULT_PAGE);
+      setError('출고 내역을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const params: FetchOutboundsParams = {

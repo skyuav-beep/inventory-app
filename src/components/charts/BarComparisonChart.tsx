@@ -48,4 +48,3 @@ export function BarComparisonChart({ data, totalLabel = '합계' }: BarCompariso
     </div>
   );
 }
-

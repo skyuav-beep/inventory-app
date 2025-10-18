@@ -127,7 +127,11 @@ export class ProductsService {
     return product ? toProductEntity(product) : null;
   }
 
-  async update(id: string, payload: UpdateProductDto, context?: AuditContext): Promise<ProductEntity> {
+  async update(
+    id: string,
+    payload: UpdateProductDto,
+    context?: AuditContext,
+  ): Promise<ProductEntity> {
     const existing = await this.prisma.product.findUnique({ where: { id } });
 
     if (!existing) {

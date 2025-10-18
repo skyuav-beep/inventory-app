@@ -5,7 +5,9 @@ import { UpdateTelegramSettingsDto } from './dto/update-telegram-settings.dto';
 import { TelegramSettingsEntity } from './entities/telegram-settings.entity';
 import { mapTelegramSettings } from './utils/telegram-settings.mapper';
 
-export type NotificationSettingWithTargets = NotificationSetting & { telegramTargets: TelegramTarget[] };
+export type NotificationSettingWithTargets = NotificationSetting & {
+  telegramTargets: TelegramTarget[];
+};
 
 @Injectable()
 export class SettingsService {

@@ -1,6 +1,14 @@
 import { $Enums } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsInt, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateOutboundDto {
   @IsString()

@@ -82,7 +82,10 @@ export async function createReturn(payload: CreateReturnPayload): Promise<Return
   });
 }
 
-export async function updateReturn(id: string, payload: UpdateReturnPayload): Promise<ReturnListItem> {
+export async function updateReturn(
+  id: string,
+  payload: UpdateReturnPayload,
+): Promise<ReturnListItem> {
   return apiFetch<ReturnListItem>(`/api/v1/returns/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),

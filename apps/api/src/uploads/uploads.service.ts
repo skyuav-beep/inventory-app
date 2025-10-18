@@ -24,7 +24,9 @@ export class UploadsService {
     private readonly queueService: UploadQueueService,
   ) {}
 
-  async createUploadJob(dto: CreateUploadDto & { createdById?: string | null; file: unknown }): Promise<UploadJobEntity> {
+  async createUploadJob(
+    dto: CreateUploadDto & { createdById?: string | null; file: unknown },
+  ): Promise<UploadJobEntity> {
     const storedFile = await this.persistFile(dto.file);
 
     const job = await this.prisma.uploadJob.create({
@@ -42,7 +44,9 @@ export class UploadsService {
     return toUploadJobEntity(job);
   }
 
-  async listJobs(query: UploadJobsQueryDto): Promise<{ data: UploadJobEntity[]; page: { page: number; size: number; total: number } }> {
+  async listJobs(
+    query: UploadJobsQueryDto,
+  ): Promise<{ data: UploadJobEntity[]; page: { page: number; size: number; total: number } }> {
     const page = query.page ?? 1;
     const size = query.size ?? 20;
     const skip = (page - 1) * size;
@@ -97,7 +101,9 @@ export class UploadsService {
     };
   }
 
-  private async persistFile(fileInput: unknown): Promise<{ filename: string; originalName: string }> {
+  private async persistFile(
+    fileInput: unknown,
+  ): Promise<{ filename: string; originalName: string }> {
     if (!fileInput || typeof fileInput !== 'object') {
       throw new BadRequestException('업로드 파일 정보를 확인할 수 없습니다.');
     }

@@ -9,4 +9,3 @@ import { PermissionsGuard } from './guards/permissions.guard';
   exports: [PermissionsService, PermissionsGuard],
 })
 export class PermissionsModule {}
-

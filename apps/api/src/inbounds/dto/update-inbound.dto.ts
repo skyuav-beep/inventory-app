@@ -21,4 +21,3 @@ export class UpdateInboundDto {
   @MaxLength(255)
   note?: string;
 }
-

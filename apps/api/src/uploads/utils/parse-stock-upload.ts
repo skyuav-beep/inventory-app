@@ -37,7 +37,13 @@ const RECIPIENT_PHONE_KEYS = ['recipient_phone', 'recipientPhone', '전화번호
 const RECIPIENT_ADDRESS_KEYS = ['recipient_address', 'recipientAddress', '주소'];
 const RECIPIENT_POSTAL_KEYS = ['recipient_postal_code', 'recipientPostalCode', '우편', '우편번호'];
 const CUSTOMS_NUMBER_KEYS = ['customs_number', 'customsNumber', '통관번호'];
-const INVOICE_NUMBER_KEYS = ['invoice_number', 'invoiceNumber', '송장번호', 'tracking_number', 'trackingNumber'];
+const INVOICE_NUMBER_KEYS = [
+  'invoice_number',
+  'invoiceNumber',
+  '송장번호',
+  'tracking_number',
+  'trackingNumber',
+];
 
 type RawRecord = Record<string, unknown>;
 
@@ -131,7 +137,12 @@ function parseExcel(filePath: string): RawRecord[] {
   });
 }
 
-function extractRequiredString(row: RawRecord, keys: string[], rowNo: number, label: string): string {
+function extractRequiredString(
+  row: RawRecord,
+  keys: string[],
+  rowNo: number,
+  label: string,
+): string {
   const value = extractOptionalString(row, keys);
   if (!value) {
     throw new Error(`${rowNo}행: ${label}가 비어 있습니다.`);
@@ -170,7 +181,12 @@ function extractQuantity(row: RawRecord, rowNo: number): number {
   return Math.trunc(numeric);
 }
 
-function extractDate(row: RawRecord, keys: string[], rowNo: number, label: string): Date | undefined {
+function extractDate(
+  row: RawRecord,
+  keys: string[],
+  rowNo: number,
+  label: string,
+): Date | undefined {
   const rawValue = extractCell(row, keys);
   if (rawValue === undefined || rawValue === null || rawValue === '') {
     return undefined;

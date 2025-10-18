@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Resource } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,7 +34,10 @@ export class ProductsController {
     @ActiveUser() activeUser: ActiveUserData,
     @Req() request: Request,
   ) {
-    return this.productsService.create(createProductDto, this.buildAuditContext(activeUser, request));
+    return this.productsService.create(
+      createProductDto,
+      this.buildAuditContext(activeUser, request),
+    );
   }
 
   @Get()
@@ -58,12 +72,20 @@ export class ProductsController {
     @ActiveUser() activeUser: ActiveUserData,
     @Req() request: Request,
   ) {
-    return this.productsService.update(id, updateProductDto, this.buildAuditContext(activeUser, request));
+    return this.productsService.update(
+      id,
+      updateProductDto,
+      this.buildAuditContext(activeUser, request),
+    );
   }
 
   @Delete(':id')
   @RequirePermission(Resource.products, 'write')
-  async remove(@Param('id') id: string, @ActiveUser() activeUser: ActiveUserData, @Req() request: Request) {
+  async remove(
+    @Param('id') id: string,
+    @ActiveUser() activeUser: ActiveUserData,
+    @Req() request: Request,
+  ) {
     await this.productsService.remove(id, this.buildAuditContext(activeUser, request));
     return { success: true };
   }

@@ -16,7 +16,9 @@ export interface ReturnEntity {
   createdAt: Date;
 }
 
-export function toReturnEntity(record: ReturnRecord & { product: Product; outbound?: Outbound | null }): ReturnEntity {
+export function toReturnEntity(
+  record: ReturnRecord & { product: Product; outbound?: Outbound | null },
+): ReturnEntity {
   return {
     id: record.id,
     productId: record.productId,

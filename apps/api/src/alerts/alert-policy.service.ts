@@ -2,7 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Alert, AlertLevel, Channel } from '@prisma/client';
 import { SettingsService } from '../settings/settings.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { getNextQuietHoursExit, isWithinQuietHours, parseQuietHoursWindow } from './utils/quiet-hours.util';
+import {
+  getNextQuietHoursExit,
+  isWithinQuietHours,
+  parseQuietHoursWindow,
+} from './utils/quiet-hours.util';
 
 export type AlertPolicyReason = 'cooldown' | 'quiet_hours' | 'ok';
 
@@ -14,7 +18,10 @@ export interface AlertPolicyDecision {
 
 @Injectable()
 export class AlertPolicyService {
-  constructor(private readonly prisma: PrismaService, private readonly settingsService: SettingsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settingsService: SettingsService,
+  ) {}
 
   async decideSend(params: {
     productId?: string;
@@ -47,7 +54,9 @@ export class AlertPolicyService {
       });
 
       if (lastAlert && lastAlert.sentAt) {
-        const minNextSend = new Date(lastAlert.sentAt.getTime() + settings.telegramCooldownMin * 60000);
+        const minNextSend = new Date(
+          lastAlert.sentAt.getTime() + settings.telegramCooldownMin * 60000,
+        );
         if (minNextSend > now) {
           return {
             canSend: false,

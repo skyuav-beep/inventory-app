@@ -43,7 +43,9 @@ export interface UpdateUserPayload {
   permissions?: PermissionDefinition[];
 }
 
-export async function fetchUsers(params: { page?: number; size?: number } = {}): Promise<UserListResponse> {
+export async function fetchUsers(
+  params: { page?: number; size?: number } = {},
+): Promise<UserListResponse> {
   const searchParams = new URLSearchParams();
 
   if (params.page) {

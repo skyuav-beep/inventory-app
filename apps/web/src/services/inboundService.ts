@@ -33,7 +33,9 @@ export interface CreateInboundPayload {
   note?: string;
 }
 
-export async function fetchInbounds(params: FetchInboundsParams = {}): Promise<InboundListResponse> {
+export async function fetchInbounds(
+  params: FetchInboundsParams = {},
+): Promise<InboundListResponse> {
   const query = new URLSearchParams();
 
   if (params.page) {

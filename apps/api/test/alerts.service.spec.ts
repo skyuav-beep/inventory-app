@@ -40,7 +40,9 @@ function createTarget(overrides: Partial<TelegramTarget> = {}): TelegramTarget {
   };
 }
 
-function createSettings(overrides: Partial<NotificationSettingWithTargets> = {}): NotificationSettingWithTargets {
+function createSettings(
+  overrides: Partial<NotificationSettingWithTargets> = {},
+): NotificationSettingWithTargets {
   return {
     id: overrides.id ?? 'default-notification-setting',
     telegramEnabled: overrides.telegramEnabled ?? true,
@@ -54,10 +56,12 @@ function createSettings(overrides: Partial<NotificationSettingWithTargets> = {})
   };
 }
 
-function createAlertsService(overrides: {
-  decision?: AlertPolicyDecision;
-  settings?: NotificationSettingWithTargets;
-} = {}): ServiceMocks {
+function createAlertsService(
+  overrides: {
+    decision?: AlertPolicyDecision;
+    settings?: NotificationSettingWithTargets;
+  } = {},
+): ServiceMocks {
   const decision: AlertPolicyDecision = overrides.decision ?? {
     canSend: true,
     reason: 'ok',
@@ -125,7 +129,13 @@ describe('AlertsService', () => {
         createTarget({ id: 'disabled', chatId: 'chat-disabled', enabled: false }),
       ],
     });
-    const { service, prisma, policy, settings: settingsSvc, telegram } = createAlertsService({ settings });
+    const {
+      service,
+      prisma,
+      policy,
+      settings: settingsSvc,
+      telegram,
+    } = createAlertsService({ settings });
 
     const result = await service.sendTestAlert(activeAdmin);
 
@@ -161,7 +171,13 @@ describe('AlertsService', () => {
       nextAttemptAt: new Date('2024-01-01T01:00:00.000Z'),
     };
 
-    const { service, prisma, policy, settings: settingsSvc, telegram } = createAlertsService({ decision });
+    const {
+      service,
+      prisma,
+      policy,
+      settings: settingsSvc,
+      telegram,
+    } = createAlertsService({ decision });
 
     const result = await service.notifyLowStock({
       id: 'product-1',
@@ -195,7 +211,9 @@ describe('AlertsService', () => {
   it('사용자 정의 알림 본문이 비어 있으면 예외를 던진다', async () => {
     const { service, prisma, settings: settingsSvc, telegram } = createAlertsService();
 
-    await expect(service.sendCustomAlert(activeAdmin, '   ')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.sendCustomAlert(activeAdmin, '   ')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
 
     expect(prisma.alert.create).not.toHaveBeenCalled();
     expect(settingsSvc.getRawSettings).not.toHaveBeenCalled();
@@ -289,7 +307,9 @@ describe('AlertsService', () => {
         alert: {
           create: jest.fn(),
           findUnique: jest.fn().mockResolvedValue(baseAlert),
-          update: jest.fn().mockResolvedValue({ ...baseAlert, sentAt: new Date(), retryCount: 1, retryAt: null }),
+          update: jest
+            .fn()
+            .mockResolvedValue({ ...baseAlert, sentAt: new Date(), retryCount: 1, retryAt: null }),
         },
         $transaction: jest.fn(),
       };
@@ -310,7 +330,9 @@ describe('AlertsService', () => {
 
       expect(result).toBe('sent');
       expect(settingsService.getRawSettings).toHaveBeenCalledTimes(1);
-      expect(telegram.sendMessage).toHaveBeenCalledTimes(settings.telegramTargets.filter((t) => t.enabled).length);
+      expect(telegram.sendMessage).toHaveBeenCalledTimes(
+        settings.telegramTargets.filter((t) => t.enabled).length,
+      );
       expect(prisma.alert.update).toHaveBeenCalledWith({
         where: { id: baseAlert.id },
         data: {

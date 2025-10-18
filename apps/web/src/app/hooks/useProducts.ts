@@ -38,7 +38,11 @@ interface UseProductsState {
 const DEFAULT_PAGE = { page: 1, size: 20, total: 0 };
 
 export function useProducts(
-  initialFilters: Partial<UseProductsFilters> = { search: '', status: 'all', disabledFilter: 'active' },
+  initialFilters: Partial<UseProductsFilters> = {
+    search: '',
+    status: 'all',
+    disabledFilter: 'active',
+  },
 ): UseProductsState {
   const mergedFilters: UseProductsFilters = {
     search: initialFilters.search ?? '',

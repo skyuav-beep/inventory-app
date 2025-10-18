@@ -120,7 +120,11 @@ export class InboundsService {
     return toInboundEntity(inbound);
   }
 
-  async update(id: string, payload: UpdateInboundDto, context?: AuditContext): Promise<InboundEntity> {
+  async update(
+    id: string,
+    payload: UpdateInboundDto,
+    context?: AuditContext,
+  ): Promise<InboundEntity> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -244,7 +248,10 @@ export class InboundsService {
     await this.dispatchLowStockAlerts(lowStockCandidates);
   }
 
-  private collectLowStockCandidate(store: Map<string, ProductEntity>, result: AdjustStockResult): void {
+  private collectLowStockCandidate(
+    store: Map<string, ProductEntity>,
+    result: AdjustStockResult,
+  ): void {
     if (shouldTriggerLowStockAlert(result.previousStatus, result.product.status)) {
       store.set(result.product.id, result.product);
     }

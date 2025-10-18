@@ -11,7 +11,10 @@ export interface DashboardTotals {
   totalReturn: number;
 }
 
-export function composeDashboardTotals(totalProducts: number, aggregate: AggregateSums): DashboardTotals {
+export function composeDashboardTotals(
+  totalProducts: number,
+  aggregate: AggregateSums,
+): DashboardTotals {
   return {
     totalProducts,
     totalIn: aggregate.totalIn ?? 0,

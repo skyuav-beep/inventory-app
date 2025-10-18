@@ -26,7 +26,8 @@ export function ShortageBanner({ count, topProduct }: ShortageBannerProps) {
       {topProduct ? (
         <p>
           가장 부족한 제품 <strong>{topProduct.name}</strong> ({topProduct.code}) 은 현재{' '}
-          <strong>{topProduct.remain}</strong>개 남았으며 안전재고 {topProduct.safetyStock}개가 필요합니다.
+          <strong>{topProduct.remain}</strong>개 남았으며 안전재고 {topProduct.safetyStock}개가
+          필요합니다.
         </p>
       ) : (
         <p>여러 제품이 안전재고 이하로 떨어졌습니다. 재고를 보충해 주세요.</p>

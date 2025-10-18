@@ -18,8 +18,8 @@ export function ShortageBanner({ count, topProduct }: ShortageBannerProps) {
         <p className={styles.title}>안전재고 미달 제품 {count}개</p>
         {hasProduct ? (
           <p className={styles.subtitle}>
-            지금 바로 <strong>{topProduct?.name}</strong> (#{topProduct?.code}) 재고를 보충하세요. 잔여{' '}
-            <strong>{topProduct?.remain}</strong> / 안전재고 {topProduct?.safetyStock}
+            지금 바로 <strong>{topProduct?.name}</strong> (#{topProduct?.code}) 재고를 보충하세요.
+            잔여 <strong>{topProduct?.remain}</strong> / 안전재고 {topProduct?.safetyStock}
           </p>
         ) : (
           <p className={styles.subtitle}>현재 모든 제품이 안전재고 이상입니다.</p>
@@ -31,4 +31,3 @@ export function ShortageBanner({ count, topProduct }: ShortageBannerProps) {
     </div>
   );
 }
-

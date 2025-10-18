@@ -37,7 +37,14 @@ export function Layout({ children }: PropsWithChildren) {
         <Topbar onToggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
         <main className={styles.mainContent}>{children}</main>
       </div>
-      {isSidebarOpen && <button type="button" className={styles.backdrop} aria-label="메뉴 닫기" onClick={closeSidebar} />}
+      {isSidebarOpen && (
+        <button
+          type="button"
+          className={styles.backdrop}
+          aria-label="메뉴 닫기"
+          onClick={closeSidebar}
+        />
+      )}
     </div>
   );
 }

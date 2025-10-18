@@ -13,4 +13,3 @@ import { UploadQueueService } from './worker/upload-queue.service';
   providers: [UploadsService, UploadQueueService],
 })
 export class UploadsModule {}
-

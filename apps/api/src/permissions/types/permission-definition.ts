@@ -5,4 +5,3 @@ export interface PermissionDefinition {
   read: boolean;
   write: boolean;
 }
-

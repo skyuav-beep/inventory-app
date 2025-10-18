@@ -20,7 +20,9 @@ export function AppRouter() {
       ))}
       <Route
         path="*"
-        element={<ProtectedRoute element={<h2>요청한 페이지를 찾을 수 없습니다.</h2>} requiresAuth />}
+        element={
+          <ProtectedRoute element={<h2>요청한 페이지를 찾을 수 없습니다.</h2>} requiresAuth />
+        }
       />
     </Routes>
   );

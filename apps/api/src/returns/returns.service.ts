@@ -145,7 +145,11 @@ export class ReturnsService {
     return toReturnEntity(record);
   }
 
-  async update(id: string, payload: UpdateReturnDto, context?: AuditContext): Promise<ReturnEntity> {
+  async update(
+    id: string,
+    payload: UpdateReturnDto,
+    context?: AuditContext,
+  ): Promise<ReturnEntity> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -212,8 +216,14 @@ export class ReturnsService {
       const previousEffective = record.status === ReturnStatus.completed ? record.quantity : 0;
       const nextEffective = nextStatus === ReturnStatus.completed ? nextQuantity : 0;
 
-      if (record.product?.disabled && record.productId === nextProductId && nextEffective > previousEffective) {
-        throw new BadRequestException('사용 중지된 제품에는 새로운 반품 수량을 적용할 수 없습니다.');
+      if (
+        record.product?.disabled &&
+        record.productId === nextProductId &&
+        nextEffective > previousEffective
+      ) {
+        throw new BadRequestException(
+          '사용 중지된 제품에는 새로운 반품 수량을 적용할 수 없습니다.',
+        );
       }
 
       if (record.productId === nextProductId) {
@@ -270,7 +280,11 @@ export class ReturnsService {
     return result;
   }
 
-  async updateStatus(id: string, payload: UpdateReturnStatusDto, context?: AuditContext): Promise<ReturnEntity> {
+  async updateStatus(
+    id: string,
+    payload: UpdateReturnStatusDto,
+    context?: AuditContext,
+  ): Promise<ReturnEntity> {
     return this.update(id, payload, context);
   }
 
@@ -311,7 +325,10 @@ export class ReturnsService {
     await this.dispatchLowStockAlerts(lowStockCandidates);
   }
 
-  private collectLowStockCandidate(store: Map<string, ProductEntity>, result: AdjustStockResult): void {
+  private collectLowStockCandidate(
+    store: Map<string, ProductEntity>,
+    result: AdjustStockResult,
+  ): void {
     if (shouldTriggerLowStockAlert(result.previousStatus, result.product.status)) {
       store.set(result.product.id, result.product);
     }

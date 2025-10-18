@@ -51,15 +51,28 @@ const createDefaultProductForm = (): ProductFormState => ({
 export function ProductsPage() {
   const { hasPermission } = useAuth();
   const canManageProducts = hasPermission('products', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setStatus, setDisabledFilter, setPage, refresh, summary } =
-    useProducts({
-      search: '',
-      status: 'all',
-      disabledFilter: 'active',
-    });
+  const {
+    items,
+    pagination,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setStatus,
+    setDisabledFilter,
+    setPage,
+    refresh,
+    summary,
+  } = useProducts({
+    search: '',
+    status: 'all',
+    disabledFilter: 'active',
+  });
   const [searchInput, setSearchInput] = useState(filters.search);
   const [isModalOpen, setModalOpen] = useState(false);
-  const [productForm, setProductForm] = useState<ProductFormState>(() => createDefaultProductForm());
+  const [productForm, setProductForm] = useState<ProductFormState>(() =>
+    createDefaultProductForm(),
+  );
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
@@ -248,9 +261,11 @@ export function ProductsPage() {
   };
 
   const handleTemplateDownload = () => {
-    downloadCsvTemplate('products-template.csv', ['code', 'name', 'description', 'specification', 'unit', 'safetyStock'], [
-      ['SKU-0001', '샘플 제품', '', '', 'EA', '10'],
-    ]);
+    downloadCsvTemplate(
+      'products-template.csv',
+      ['code', 'name', 'description', 'specification', 'unit', 'safetyStock'],
+      [['SKU-0001', '샘플 제품', '', '', 'EA', '10']],
+    );
   };
 
   const handleProductDownload = (product: ProductListItem) => {
@@ -349,7 +364,11 @@ export function ProductsPage() {
             />
           </div>
           <div className={styles.selectField}>
-            <select value={filters.status ?? 'all'} onChange={handleStatusChange} className={styles.select}>
+            <select
+              value={filters.status ?? 'all'}
+              onChange={handleStatusChange}
+              className={styles.select}
+            >
               {statusOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -419,7 +438,10 @@ export function ProductsPage() {
                       : styles.statusNormal;
 
                 return (
-                  <tr key={product.id} className={product.disabled ? styles.disabledRow : undefined}>
+                  <tr
+                    key={product.id}
+                    className={product.disabled ? styles.disabledRow : undefined}
+                  >
                     <td>{product.code}</td>
                     <td>
                       <div className={styles.productNameCell}>
@@ -435,10 +457,14 @@ export function ProductsPage() {
                     <td>{product.totalOut.toLocaleString()}</td>
                     <td>{product.totalReturn.toLocaleString()}</td>
                     <td>
-                      <span className={`${styles.status} ${statusClass}`}>{statusLabels[product.status]}</span>
+                      <span className={`${styles.status} ${statusClass}`}>
+                        {statusLabels[product.status]}
+                      </span>
                     </td>
                     <td>
-                      <span className={product.disabled ? styles.disabledBadge : styles.activeBadge}>
+                      <span
+                        className={product.disabled ? styles.disabledBadge : styles.activeBadge}
+                      >
                         {product.disabled ? '사용 중지' : '사용 중'}
                       </span>
                     </td>
@@ -530,7 +556,12 @@ export function ProductsPage() {
             <div className={styles.labelRow}>
               <label htmlFor="product-code">제품 코드</label>
               {!isEditing && (
-                <button type="button" className={styles.linkButton} onClick={regenerateCode} disabled={submitting}>
+                <button
+                  type="button"
+                  className={styles.linkButton}
+                  onClick={regenerateCode}
+                  disabled={submitting}
+                >
                   코드 재생성
                 </button>
               )}
@@ -603,10 +634,16 @@ export function ProductsPage() {
           </div>
           <div className={styles.formFieldInline}>
             <label className={styles.checkboxLabelInline}>
-              <input type="checkbox" checked={productForm.disabled} onChange={handleDisabledToggle} />
+              <input
+                type="checkbox"
+                checked={productForm.disabled}
+                onChange={handleDisabledToggle}
+              />
               사용 중지
             </label>
-            <span className={styles.inlineHelpText}>사용 중지 시 신규 입출고/반품 등록이 제한됩니다.</span>
+            <span className={styles.inlineHelpText}>
+              사용 중지 시 신규 입출고/반품 등록이 제한됩니다.
+            </span>
           </div>
           {formError && <p className={styles.errorText}>{formError}</p>}
         </form>

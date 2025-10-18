@@ -106,7 +106,9 @@ describe('DashboardPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('대시보드 데이터를 불러올 수 없습니다. 로그인 여부를 확인하거나 잠시 후 다시 시도하세요.'),
+        screen.getByText(
+          '대시보드 데이터를 불러올 수 없습니다. 로그인 여부를 확인하거나 잠시 후 다시 시도하세요.',
+        ),
       ).toBeInTheDocument();
     });
   });

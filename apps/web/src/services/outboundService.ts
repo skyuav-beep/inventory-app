@@ -57,7 +57,9 @@ export interface CreateOutboundPayload {
   status?: OutboundStatus;
 }
 
-export async function fetchOutbounds(params: FetchOutboundsParams = {}): Promise<OutboundListResponse> {
+export async function fetchOutbounds(
+  params: FetchOutboundsParams = {},
+): Promise<OutboundListResponse> {
   const query = new URLSearchParams();
 
   if (params.page) {
@@ -104,7 +106,10 @@ export interface UpdateOutboundPayload {
   status?: OutboundStatus;
 }
 
-export async function updateOutbound(id: string, payload: UpdateOutboundPayload): Promise<OutboundListItem> {
+export async function updateOutbound(
+  id: string,
+  payload: UpdateOutboundPayload,
+): Promise<OutboundListItem> {
   return apiFetch<OutboundListItem>(`/api/v1/outbounds/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),

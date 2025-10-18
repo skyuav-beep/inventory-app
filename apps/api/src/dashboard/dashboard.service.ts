@@ -27,26 +27,27 @@ export class DashboardService {
   }
 
   async getSummary() {
-    const [totalProducts, aggregates, lowStockProducts, productSnapshot] = await this.prisma.$transaction([
-      this.prisma.product.count({ where: { disabled: false } }),
-      this.prisma.product.aggregate({
-        where: { disabled: false },
-        _sum: {
-          totalIn: true,
-          totalOut: true,
-          totalReturn: true,
-        },
-      }),
-      this.prisma.product.findMany({
-        where: { status: ProductStatus.low, disabled: false },
-        orderBy: { remain: 'asc' },
-        take: this.lowStockLimit,
-      }),
-      this.prisma.product.findMany({
-        where: { disabled: false },
-        orderBy: { name: 'asc' },
-      }),
-    ]);
+    const [totalProducts, aggregates, lowStockProducts, productSnapshot] =
+      await this.prisma.$transaction([
+        this.prisma.product.count({ where: { disabled: false } }),
+        this.prisma.product.aggregate({
+          where: { disabled: false },
+          _sum: {
+            totalIn: true,
+            totalOut: true,
+            totalReturn: true,
+          },
+        }),
+        this.prisma.product.findMany({
+          where: { status: ProductStatus.low, disabled: false },
+          orderBy: { remain: 'asc' },
+          take: this.lowStockLimit,
+        }),
+        this.prisma.product.findMany({
+          where: { disabled: false },
+          orderBy: { name: 'asc' },
+        }),
+      ]);
 
     const totals = composeDashboardTotals(totalProducts, {
       totalIn: aggregates._sum.totalIn,

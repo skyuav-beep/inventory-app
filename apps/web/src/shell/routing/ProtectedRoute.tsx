@@ -13,7 +13,11 @@ export function ProtectedRoute({ element, requiresAuth = true, resource }: Prote
 
   if (requiresAuth) {
     if (initializing) {
-      return <div style={{ padding: '48px', textAlign: 'center' }}>사용자 정보를 확인하는 중입니다...</div>;
+      return (
+        <div style={{ padding: '48px', textAlign: 'center' }}>
+          사용자 정보를 확인하는 중입니다...
+        </div>
+      );
     }
 
     if (!isAuthenticated) {

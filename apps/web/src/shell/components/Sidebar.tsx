@@ -65,7 +65,9 @@ export function Sidebar({ mobileOpen, collapsed, onClose, onToggleCollapse }: Si
             <li key={route.path}>
               <NavLink
                 to={route.path}
-                className={({ isActive }) => (isActive ? `${styles.link} ${styles.active}` : styles.link)}
+                className={({ isActive }) =>
+                  isActive ? `${styles.link} ${styles.active}` : styles.link
+                }
                 end={route.meta.exact}
                 onClick={onClose}
                 aria-label={collapsed ? route.meta.label : undefined}
@@ -91,7 +93,12 @@ export function Sidebar({ mobileOpen, collapsed, onClose, onToggleCollapse }: Si
               )}
             </div>
           </div>
-          <button type="button" className={styles.logoutButton} onClick={handleLogout} aria-label="로그아웃">
+          <button
+            type="button"
+            className={styles.logoutButton}
+            onClick={handleLogout}
+            aria-label="로그아웃"
+          >
             <span className={styles.logoutIcon} aria-hidden="true">
               ⎋
             </span>

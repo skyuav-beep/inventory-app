@@ -1,6 +1,12 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useReturns } from '../../app/hooks/useReturns';
-import { ReturnListItem, ReturnStatus, createReturn, deleteReturn, updateReturn } from '../../services/returnService';
+import {
+  ReturnListItem,
+  ReturnStatus,
+  createReturn,
+  deleteReturn,
+  updateReturn,
+} from '../../services/returnService';
 import { ProductListItem, fetchProducts } from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
 import { Modal } from '../../components/ui/Modal';
@@ -65,7 +71,18 @@ const buildFormStateFromRecord = (record: ReturnListItem): ReturnFormState => ({
 export function ReturnsPage() {
   const { hasPermission } = useAuth();
   const canRegisterReturn = hasPermission('returns', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setStatus, setPage, refresh, summary } = useReturns({
+  const {
+    items,
+    pagination,
+    loading,
+    error,
+    filters,
+    setSearch,
+    setStatus,
+    setPage,
+    refresh,
+    summary,
+  } = useReturns({
     search: '',
     status: 'all',
   });
@@ -181,7 +198,9 @@ export function ReturnsPage() {
     setActionError(null);
   };
 
-  const handleFormChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = event.target;
     setFormError(null);
     setActionError(null);
@@ -255,8 +274,8 @@ export function ReturnsPage() {
         err instanceof Error
           ? err.message
           : modalMode === 'edit'
-          ? '반품 수정 중 오류가 발생했습니다.'
-          : '반품 등록 중 오류가 발생했습니다.';
+            ? '반품 수정 중 오류가 발생했습니다.'
+            : '반품 등록 중 오류가 발생했습니다.';
       logError(err);
       setFormError(message);
     } finally {
@@ -269,7 +288,9 @@ export function ReturnsPage() {
       return;
     }
 
-    const confirmed = window.confirm('선택한 반품 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.');
+    const confirmed = window.confirm(
+      '선택한 반품 내역을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    );
     if (!confirmed) {
       return;
     }
@@ -294,8 +315,8 @@ export function ReturnsPage() {
       ? '수정 중...'
       : '등록 중...'
     : modalMode === 'edit'
-    ? '수정'
-    : '등록';
+      ? '수정'
+      : '등록';
 
   const modalTitle = modalMode === 'create' ? '반품 등록' : '반품 수정';
 
@@ -498,20 +519,19 @@ export function ReturnsPage() {
               <option value="">{optionsLoading ? '불러오는 중...' : '제품을 선택하세요'}</option>
               {productOptions.map((product) => (
                 <option key={product.id} value={product.id}>
-                  {product.name} ({product.code})
-                  {product.unit ? ` · ${product.unit}` : ''}
+                  {product.name} ({product.code}){product.unit ? ` · ${product.unit}` : ''}
                   {product.specification ? ` · ${product.specification}` : ''}
                 </option>
               ))}
             </select>
-          {optionsError && (
-            <div className={styles.errorText}>
-              <span>{optionsError}</span>
-              <button type="button" onClick={loadProductOptions} className={styles.retryButton}>
-                다시 시도
-              </button>
-            </div>
-          )}
+            {optionsError && (
+              <div className={styles.errorText}>
+                <span>{optionsError}</span>
+                <button type="button" onClick={loadProductOptions} className={styles.retryButton}>
+                  다시 시도
+                </button>
+              </div>
+            )}
           </div>
           <div className={styles.formField}>
             <label htmlFor="return-outbound-id">연결된 출고 ID (선택)</label>

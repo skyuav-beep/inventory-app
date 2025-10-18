@@ -55,7 +55,9 @@ export interface UpdateProductPayload {
   disabled?: boolean;
 }
 
-export async function fetchProducts(params: FetchProductsParams = {}): Promise<ProductListResponse> {
+export async function fetchProducts(
+  params: FetchProductsParams = {},
+): Promise<ProductListResponse> {
   const query = new URLSearchParams();
 
   if (params.page) {
@@ -91,7 +93,10 @@ export async function createProduct(payload: CreateProductPayload): Promise<Prod
   });
 }
 
-export async function updateProduct(id: string, payload: UpdateProductPayload): Promise<ProductListItem> {
+export async function updateProduct(
+  id: string,
+  payload: UpdateProductPayload,
+): Promise<ProductListItem> {
   return apiFetch<ProductListItem>(`/api/v1/products/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),

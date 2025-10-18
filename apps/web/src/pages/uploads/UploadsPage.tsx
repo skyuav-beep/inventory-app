@@ -57,42 +57,38 @@ export function UploadsPage() {
 
   const isSubmitDisabled = useMemo(() => state === 'uploading' || !file, [file, state]);
 
-  const loadJobs = useCallback(
-    async (page = 1) => {
-      try {
-        setJobsLoading(true);
-        setJobsError(null);
-        const response = await fetchUploadJobs({ page, size: 10 });
-        setJobs(response.data);
-        setJobPage(response.page);
-      } catch (err) {
-        console.error(err);
-        setJobsError(err instanceof Error ? err.message : '업로드 내역을 불러오지 못했습니다.');
-      } finally {
-        setJobsLoading(false);
-      }
-    },
-    [],
-  );
+  const loadJobs = useCallback(async (page = 1) => {
+    try {
+      setJobsLoading(true);
+      setJobsError(null);
+      const response = await fetchUploadJobs({ page, size: 10 });
+      setJobs(response.data);
+      setJobPage(response.page);
+    } catch (err) {
+      console.error(err);
+      setJobsError(err instanceof Error ? err.message : '업로드 내역을 불러오지 못했습니다.');
+    } finally {
+      setJobsLoading(false);
+    }
+  }, []);
 
-  const loadJobItems = useCallback(
-    async (jobId: string, page = 1) => {
-      try {
-        setJobItemsLoading(true);
-        setJobItemsError(null);
-        const response = await fetchUploadJobItems(jobId, { page, size: 10 });
-        setJobItems(response.data);
-        setJobItemsPage(response.page);
-        setSelectedJobId(jobId);
-      } catch (err) {
-        console.error(err);
-        setJobItemsError(err instanceof Error ? err.message : '업로드 상세 내역을 불러오지 못했습니다.');
-      } finally {
-        setJobItemsLoading(false);
-      }
-    },
-    [],
-  );
+  const loadJobItems = useCallback(async (jobId: string, page = 1) => {
+    try {
+      setJobItemsLoading(true);
+      setJobItemsError(null);
+      const response = await fetchUploadJobItems(jobId, { page, size: 10 });
+      setJobItems(response.data);
+      setJobItemsPage(response.page);
+      setSelectedJobId(jobId);
+    } catch (err) {
+      console.error(err);
+      setJobItemsError(
+        err instanceof Error ? err.message : '업로드 상세 내역을 불러오지 못했습니다.',
+      );
+    } finally {
+      setJobItemsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadJobs();
@@ -149,9 +145,11 @@ export function UploadsPage() {
 
   const handleDownloadInboundTemplate = () => {
     const today = new Date().toISOString().slice(0, 10);
-    downloadCsvTemplate('inbounds-template.csv', ['code', 'quantity', 'date', 'note'], [
-      ['SKU-0001', '10', today, '입고 메모'],
-    ]);
+    downloadCsvTemplate(
+      'inbounds-template.csv',
+      ['code', 'quantity', 'date', 'note'],
+      [['SKU-0001', '10', today, '입고 메모']],
+    );
   };
 
   const handleDownloadOutboundTemplate = () => {
@@ -205,10 +203,18 @@ export function UploadsPage() {
           <p>입/출고 데이터를 Excel 또는 CSV로 업로드하여 대량 등록하세요.</p>
         </div>
         <div className={styles.headerActions}>
-          <button type="button" className={styles.secondaryButton} onClick={handleDownloadInboundTemplate}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={handleDownloadInboundTemplate}
+          >
             입고 템플릿 다운로드
           </button>
-          <button type="button" className={styles.secondaryButton} onClick={handleDownloadOutboundTemplate}>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={handleDownloadOutboundTemplate}
+          >
             출고 템플릿 다운로드
           </button>
         </div>
@@ -226,7 +232,12 @@ export function UploadsPage() {
 
           <div className={styles.fieldGroup}>
             <label htmlFor="file-input">파일 선택</label>
-            <input id="file-input" type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
+            <input
+              id="file-input"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+            />
             {file && (
               <p className={styles.fileInfo}>
                 선택된 파일: <strong>{file.name}</strong>
@@ -394,7 +405,10 @@ export function UploadsPage() {
                     const payload = item.payload;
                     const note = typeof payload.note === 'string' ? payload.note : undefined;
                     const code = typeof payload.code === 'string' ? payload.code : '-';
-                    const quantity = typeof payload.quantity === 'number' ? payload.quantity : Number(payload.quantity ?? 0);
+                    const quantity =
+                      typeof payload.quantity === 'number'
+                        ? payload.quantity
+                        : Number(payload.quantity ?? 0);
 
                     return (
                       <tr key={item.id}>
@@ -402,7 +416,9 @@ export function UploadsPage() {
                         <td>{code}</td>
                         <td>{Number.isFinite(quantity) ? quantity : '-'}</td>
                         <td>
-                          <span className={`${styles.statusTag} ${styles[`status-${item.status}`]}`}>
+                          <span
+                            className={`${styles.statusTag} ${styles[`status-${item.status}`]}`}
+                          >
                             {statusLabel(item.status)}
                           </span>
                         </td>
@@ -418,7 +434,8 @@ export function UploadsPage() {
           {jobItems.length > 0 && (
             <div className={styles.paginationMeta}>
               <span>
-                페이지 {jobItemsPage.page} / {Math.max(1, Math.ceil(jobItemsPage.total / jobItemsPage.size))}
+                페이지 {jobItemsPage.page} /{' '}
+                {Math.max(1, Math.ceil(jobItemsPage.total / jobItemsPage.size))}
               </span>
             </div>
           )}

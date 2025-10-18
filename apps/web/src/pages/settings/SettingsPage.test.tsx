@@ -76,9 +76,11 @@ const createAuthValue = (write = true): AuthContextValue =>
     login: vi.fn(),
     logout: vi.fn(),
     setUser: vi.fn(),
-    hasPermission: vi.fn().mockImplementation((_resource: string, options?: { write?: boolean }) =>
-      options?.write ? write : true,
-    ),
+    hasPermission: vi
+      .fn()
+      .mockImplementation((_resource: string, options?: { write?: boolean }) =>
+        options?.write ? write : true,
+      ),
   }) as AuthContextValue;
 
 describe('SettingsPage - 사용자 권한 관리', () => {

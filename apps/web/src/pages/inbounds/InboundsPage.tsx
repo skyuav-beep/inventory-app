@@ -32,9 +32,10 @@ const createDefaultInboundForm = (): InboundFormState => ({
 export function InboundsPage() {
   const { hasPermission } = useAuth();
   const canRegisterInbound = hasPermission('inbounds', { write: true });
-  const { items, pagination, loading, error, filters, setSearch, setPage, refresh, summary } = useInbounds({
-    search: '',
-  });
+  const { items, pagination, loading, error, filters, setSearch, setPage, refresh, summary } =
+    useInbounds({
+      search: '',
+    });
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const [isModalOpen, setModalOpen] = useState(false);
@@ -119,7 +120,9 @@ export function InboundsPage() {
     setModalOpen(false);
   };
 
-  const handleFormChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = event.target;
     setFormState((prev) => ({
       ...prev,
@@ -165,7 +168,11 @@ export function InboundsPage() {
 
   const handleTemplateDownload = () => {
     const today = new Date().toISOString().slice(0, 10);
-    downloadCsvTemplate('inbounds-template.csv', ['code', 'quantity', 'date', 'note'], [['SKU-0001', '10', today, '메모']]);
+    downloadCsvTemplate(
+      'inbounds-template.csv',
+      ['code', 'quantity', 'date', 'note'],
+      [['SKU-0001', '10', today, '메모']],
+    );
   };
 
   return (
@@ -325,8 +332,7 @@ export function InboundsPage() {
               <option value="">{optionsLoading ? '불러오는 중...' : '제품을 선택하세요'}</option>
               {productOptions.map((product) => (
                 <option key={product.id} value={product.id}>
-                  {product.name} ({product.code})
-                  {product.unit ? ` · ${product.unit}` : ''}
+                  {product.name} ({product.code}){product.unit ? ` · ${product.unit}` : ''}
                   {product.specification ? ` · ${product.specification}` : ''}
                 </option>
               ))}

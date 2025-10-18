@@ -138,7 +138,11 @@ export class OutboundsService {
     return toOutboundEntity(outbound);
   }
 
-  async update(id: string, payload: UpdateOutboundDto, context?: AuditContext): Promise<OutboundEntity> {
+  async update(
+    id: string,
+    payload: UpdateOutboundDto,
+    context?: AuditContext,
+  ): Promise<OutboundEntity> {
     const lowStockCandidates = new Map<string, ProductEntity>();
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -191,11 +195,12 @@ export class OutboundsService {
           quantity: nextQuantity,
           dateOut: nextDateOut,
           status: payload.status !== undefined ? payload.status : undefined,
-          note:
-            payload.note !== undefined ? this.sanitizeNullableString(payload.note) : undefined,
-          orderDate: payload.orderDate !== undefined ? payload.orderDate ?? null : undefined,
+          note: payload.note !== undefined ? this.sanitizeNullableString(payload.note) : undefined,
+          orderDate: payload.orderDate !== undefined ? (payload.orderDate ?? null) : undefined,
           ordererId:
-            payload.ordererId !== undefined ? this.sanitizeNullableString(payload.ordererId) : undefined,
+            payload.ordererId !== undefined
+              ? this.sanitizeNullableString(payload.ordererId)
+              : undefined,
           ordererName:
             payload.ordererName !== undefined
               ? this.sanitizeNullableString(payload.ordererName)
@@ -313,7 +318,10 @@ export class OutboundsService {
     await this.dispatchLowStockAlerts(lowStockCandidates);
   }
 
-  private collectLowStockCandidate(store: Map<string, ProductEntity>, result: AdjustStockResult): void {
+  private collectLowStockCandidate(
+    store: Map<string, ProductEntity>,
+    result: AdjustStockResult,
+  ): void {
     if (shouldTriggerLowStockAlert(result.previousStatus, result.product.status)) {
       store.set(result.product.id, result.product);
     }

@@ -62,13 +62,18 @@ export async function uploadStockFile(type: UploadKind, file: File): Promise<Upl
   const formData = new FormData();
   formData.append('file', file);
 
-  return apiFetch<UploadResponse>(`/api/v1/uploads/${type === 'inbound' ? 'inbounds' : 'outbounds'}`, {
-    method: 'POST',
-    body: formData,
-  });
+  return apiFetch<UploadResponse>(
+    `/api/v1/uploads/${type === 'inbound' ? 'inbounds' : 'outbounds'}`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  );
 }
 
-export async function fetchUploadJobs(params: { page?: number; size?: number; status?: UploadStatus } = {}): Promise<UploadJobsResponse> {
+export async function fetchUploadJobs(
+  params: { page?: number; size?: number; status?: UploadStatus } = {},
+): Promise<UploadJobsResponse> {
   const query = new URLSearchParams();
 
   if (params.page) {
@@ -84,7 +89,9 @@ export async function fetchUploadJobs(params: { page?: number; size?: number; st
   }
 
   const queryString = query.toString();
-  return apiFetch<UploadJobsResponse>(`/api/v1/uploads/jobs${queryString ? `?${queryString}` : ''}`);
+  return apiFetch<UploadJobsResponse>(
+    `/api/v1/uploads/jobs${queryString ? `?${queryString}` : ''}`,
+  );
 }
 
 export async function fetchUploadJobItems(

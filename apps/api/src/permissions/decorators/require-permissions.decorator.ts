@@ -12,8 +12,5 @@ export interface RequiredPermission {
 export const RequirePermissions = (...permissions: RequiredPermission[]) =>
   SetMetadata(REQUIRE_PERMISSIONS_KEY, permissions);
 
-export const RequirePermission = (
-  resource: Resource,
-  action: PermissionAction = 'read',
-) => RequirePermissions({ resource, action });
-
+export const RequirePermission = (resource: Resource, action: PermissionAction = 'read') =>
+  RequirePermissions({ resource, action });

@@ -98,10 +98,7 @@ export class UsersService {
           role,
           passwordHash: hashedPassword,
           permissions: {
-            create: this.permissionsService.buildCreateInput(
-              payload.permissions,
-              role,
-            ),
+            create: this.permissionsService.buildCreateInput(payload.permissions, role),
           },
         },
         include: { permissions: true },
@@ -121,10 +118,7 @@ export class UsersService {
 
       return entity;
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('이미 존재하는 이메일입니다.');
       }
 
@@ -132,7 +126,11 @@ export class UsersService {
     }
   }
 
-  async updateUser(id: string, payload: UpdateUserDto, context?: AuditContext): Promise<UserEntity> {
+  async updateUser(
+    id: string,
+    payload: UpdateUserDto,
+    context?: AuditContext,
+  ): Promise<UserEntity> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.user.findUnique({
         where: { id },
@@ -153,12 +151,12 @@ export class UsersService {
             write: permission.write,
           }))
         : payload.role
-        ? undefined
-        : existing.permissions.map((permission) => ({
-            resource: permission.resource,
-            read: permission.read,
-            write: permission.write,
-          }));
+          ? undefined
+          : existing.permissions.map((permission) => ({
+              resource: permission.resource,
+              read: permission.read,
+              write: permission.write,
+            }));
 
       const permissionsCreate = this.permissionsService.buildCreateInput(permissionInput, nextRole);
 

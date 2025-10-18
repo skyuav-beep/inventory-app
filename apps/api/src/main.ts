@@ -29,8 +29,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') ?? 3000;
   const host = configService.get<string>('HOST') ?? '0.0.0.0';
-  const enableSwagger =
-    configService.get<string>('ENABLE_SWAGGER')?.toLowerCase() !== 'false';
+  const enableSwagger = configService.get<string>('ENABLE_SWAGGER')?.toLowerCase() !== 'false';
 
   if (enableSwagger) {
     const swaggerConfig = new DocumentBuilder()

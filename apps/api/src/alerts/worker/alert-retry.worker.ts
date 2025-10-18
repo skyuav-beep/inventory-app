@@ -10,7 +10,10 @@ export class AlertRetryWorker implements OnModuleInit, OnModuleDestroy {
   private timer: NodeJS.Timeout | null = null;
   private processing = false;
 
-  constructor(private readonly prisma: PrismaService, private readonly alertsService: AlertsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alertsService: AlertsService,
+  ) {}
 
   onModuleInit(): void {
     this.start();
@@ -84,7 +87,9 @@ export class AlertRetryWorker implements OnModuleInit, OnModuleDestroy {
             select: { retryCount: true },
           });
 
-          this.logger.warn(`알림(ID: ${alert.id}) 오류로 재시도 예약 (다음 시도: ${rescheduleUntil.toISOString()})`);
+          this.logger.warn(
+            `알림(ID: ${alert.id}) 오류로 재시도 예약 (다음 시도: ${rescheduleUntil.toISOString()})`,
+          );
 
           if (updated.retryCount >= ALERT_RETRY_MAX_ATTEMPTS) {
             await this.prisma.alert.update({

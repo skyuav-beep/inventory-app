@@ -180,8 +180,14 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
-  const [testFeedback, setTestFeedback] = useState<{ variant: FeedbackVariant; message: string } | null>(null);
-  const [customFeedback, setCustomFeedback] = useState<{ variant: FeedbackVariant; message: string } | null>(null);
+  const [testFeedback, setTestFeedback] = useState<{
+    variant: FeedbackVariant;
+    message: string;
+  } | null>(null);
+  const [customFeedback, setCustomFeedback] = useState<{
+    variant: FeedbackVariant;
+    message: string;
+  } | null>(null);
   const [testing, setTesting] = useState(false);
   const [sendingCustom, setSendingCustom] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -223,8 +229,8 @@ export function SettingsPage() {
         ? '생성 중...'
         : '사용자 생성'
       : userFormSubmitting
-      ? '수정 중...'
-      : '권한 저장';
+        ? '수정 중...'
+        : '권한 저장';
 
   const loadSettings = useCallback(async () => {
     try {
@@ -235,7 +241,9 @@ export function SettingsPage() {
       setUpdatedAt(settings.updatedAt);
     } catch (error) {
       logError(error);
-      setLoadError('텔레그램 설정을 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+      setLoadError(
+        '텔레그램 설정을 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
+      );
     } finally {
       setLoading(false);
     }
@@ -621,13 +629,21 @@ export function SettingsPage() {
             <h3>텔레그램 알림 설정</h3>
             <p>안전재고 부족 알림을 받을 채널과 대상을 관리합니다.</p>
           </div>
-          {updatedAt && <span className={styles.metaText}>마지막 업데이트: {new Date(updatedAt).toLocaleString()}</span>}
+          {updatedAt && (
+            <span className={styles.metaText}>
+              마지막 업데이트: {new Date(updatedAt).toLocaleString()}
+            </span>
+          )}
         </header>
 
         {loadError && (
           <div className={`${styles.feedback} ${styles.feedbackError}`}>
             <div>{loadError}</div>
-            <button type="button" className={styles.secondaryButton} onClick={() => void loadSettings()}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => void loadSettings()}
+            >
               다시 불러오기
             </button>
           </div>
@@ -647,7 +663,9 @@ export function SettingsPage() {
                 <input type="checkbox" checked={form.enabled} onChange={handleEnabledChange} />
                 <span>텔레그램 알림 사용</span>
               </label>
-              <span className={styles.helpText}>봇 토큰과 대상 Chat ID가 있어야 메시지가 발송됩니다.</span>
+              <span className={styles.helpText}>
+                봇 토큰과 대상 Chat ID가 있어야 메시지가 발송됩니다.
+              </span>
             </div>
 
             <div className={styles.formGrid}>
@@ -675,7 +693,9 @@ export function SettingsPage() {
                   value={form.cooldownMinutes}
                   onChange={handleCooldownChange}
                 />
-                <p className={styles.helpText}>동일 제품 알림 간 최소 간격을 분 단위로 설정합니다.</p>
+                <p className={styles.helpText}>
+                  동일 제품 알림 간 최소 간격을 분 단위로 설정합니다.
+                </p>
               </div>
 
               <div className={styles.fieldGroup}>
@@ -687,7 +707,9 @@ export function SettingsPage() {
                   value={form.quietHours}
                   onChange={handleQuietHoursChange}
                 />
-                <p className={styles.helpText}>예: 22-07 입력 시 22시부터 다음날 07시까지 알림이 보류됩니다.</p>
+                <p className={styles.helpText}>
+                  예: 22-07 입력 시 22시부터 다음날 07시까지 알림이 보류됩니다.
+                </p>
               </div>
             </div>
 
@@ -695,7 +717,9 @@ export function SettingsPage() {
               <div className={styles.targetsHeader}>
                 <div>
                   <h4>알림 대상</h4>
-                  <p className={styles.helpText}>텔레그램 Chat ID는 `/start` 이후 봇 대화에서 `/chatid` 등으로 확인하세요.</p>
+                  <p className={styles.helpText}>
+                    텔레그램 Chat ID는 `/start` 이후 봇 대화에서 `/chatid` 등으로 확인하세요.
+                  </p>
                 </div>
                 <button type="button" className={styles.secondaryButton} onClick={handleAddTarget}>
                   대상 추가
@@ -704,7 +728,9 @@ export function SettingsPage() {
 
               <div className={styles.targetsTableWrapper}>
                 {form.targets.length === 0 ? (
-                  <div className={styles.emptyTargets}>등록된 대상이 없습니다. 대상 추가를 눌러 첫 Chat ID를 등록하세요.</div>
+                  <div className={styles.emptyTargets}>
+                    등록된 대상이 없습니다. 대상 추가를 눌러 첫 Chat ID를 등록하세요.
+                  </div>
                 ) : (
                   <table className={styles.targetsTable}>
                     <thead>
@@ -722,7 +748,9 @@ export function SettingsPage() {
                             <input
                               type="text"
                               value={target.chatId}
-                              onChange={(event) => handleTargetChange(index, 'chatId', event.target.value)}
+                              onChange={(event) =>
+                                handleTargetChange(index, 'chatId', event.target.value)
+                              }
                               placeholder="@channel 또는 숫자 ID"
                             />
                           </td>
@@ -730,7 +758,9 @@ export function SettingsPage() {
                             <input
                               type="text"
                               value={target.label}
-                              onChange={(event) => handleTargetChange(index, 'label', event.target.value)}
+                              onChange={(event) =>
+                                handleTargetChange(index, 'label', event.target.value)
+                              }
                               placeholder="예: 야간조 채널"
                             />
                           </td>
@@ -739,7 +769,9 @@ export function SettingsPage() {
                               <input
                                 type="checkbox"
                                 checked={target.enabled}
-                                onChange={(event) => handleTargetEnabledChange(index, event.target.checked)}
+                                onChange={(event) =>
+                                  handleTargetEnabledChange(index, event.target.checked)
+                                }
                               />
                               활성
                             </label>
@@ -766,7 +798,12 @@ export function SettingsPage() {
               <button type="submit" className={styles.primaryButton} disabled={saving}>
                 {saving ? '저장 중...' : '변경사항 저장'}
               </button>
-              <button type="button" className={styles.secondaryButton} onClick={handleTestAlert} disabled={testing || loading}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={handleTestAlert}
+                disabled={testing || loading}
+              >
                 {testing ? '테스트 발송 중...' : '텔레그램 테스트 발송'}
               </button>
             </div>
@@ -776,7 +813,8 @@ export function SettingsPage() {
                 <div>
                   <h4>메시지 작성 후 즉시 발송</h4>
                   <p className={styles.helpText}>
-                    저장된 텔레그램 대상에게 임시 공지를 보낼 수 있습니다. 메시지는 즉시 발송되며 기록에 남습니다.
+                    저장된 텔레그램 대상에게 임시 공지를 보낼 수 있습니다. 메시지는 즉시 발송되며
+                    기록에 남습니다.
                   </p>
                 </div>
               </div>
@@ -820,9 +858,13 @@ export function SettingsPage() {
           )}
         </header>
 
-        {userSuccess && <div className={`${styles.feedback} ${styles.feedbackSuccess}`}>{userSuccess}</div>}
+        {userSuccess && (
+          <div className={`${styles.feedback} ${styles.feedbackSuccess}`}>{userSuccess}</div>
+        )}
         {(userError || usersError) && (
-          <div className={`${styles.feedback} ${styles.feedbackError}`}>{userError ?? usersError}</div>
+          <div className={`${styles.feedback} ${styles.feedbackError}`}>
+            {userError ?? usersError}
+          </div>
         )}
 
         <div className={styles.usersTableWrapper}>
@@ -851,7 +893,9 @@ export function SettingsPage() {
                       <td>
                         <div className={styles.userNameCell}>
                           <span className={styles.userName}>{userItem.name}</span>
-                          <span className={styles.userRoleBadge}>{ROLE_LABELS[userItem.role] ?? userItem.role}</span>
+                          <span className={styles.userRoleBadge}>
+                            {ROLE_LABELS[userItem.role] ?? userItem.role}
+                          </span>
                         </div>
                       </td>
                       <td>{userItem.email}</td>
@@ -861,7 +905,10 @@ export function SettingsPage() {
                           {readable.length === 0
                             ? '-'
                             : readable.map((permission) => (
-                                <span key={`${userItem.id}-read-${permission.resource}`} className={styles.chip}>
+                                <span
+                                  key={`${userItem.id}-read-${permission.resource}`}
+                                  className={styles.chip}
+                                >
                                   {RESOURCE_LABELS[permission.resource] ?? permission.resource}
                                 </span>
                               ))}
@@ -872,7 +919,10 @@ export function SettingsPage() {
                           {writable.length === 0
                             ? '-'
                             : writable.map((permission) => (
-                                <span key={`${userItem.id}-write-${permission.resource}`} className={styles.chipAccent}>
+                                <span
+                                  key={`${userItem.id}-write-${permission.resource}`}
+                                  className={styles.chipAccent}
+                                >
                                   {RESOURCE_LABELS[permission.resource] ?? permission.resource}
                                 </span>
                               ))}
@@ -931,10 +981,20 @@ export function SettingsPage() {
         size="lg"
         footer={
           <>
-            <button type="button" className={styles.secondaryButton} onClick={handleCloseUserModal} disabled={userFormSubmitting}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={handleCloseUserModal}
+              disabled={userFormSubmitting}
+            >
               취소
             </button>
-            <button type="submit" form="user-form" className={styles.primaryButton} disabled={userFormSubmitting}>
+            <button
+              type="submit"
+              form="user-form"
+              className={styles.primaryButton}
+              disabled={userFormSubmitting}
+            >
               {userSubmitLabel}
             </button>
           </>
@@ -948,7 +1008,9 @@ export function SettingsPage() {
                 id="user-email"
                 type="email"
                 value={userForm.email}
-                onChange={(event) => setUserForm((prev) => ({ ...prev, email: event.target.value }))}
+                onChange={(event) =>
+                  setUserForm((prev) => ({ ...prev, email: event.target.value }))
+                }
                 placeholder="user@example.com"
                 required
                 disabled={userModalMode === 'edit'}
@@ -980,7 +1042,9 @@ export function SettingsPage() {
                   id="user-password"
                   type="password"
                   value={userForm.password}
-                  onChange={(event) => setUserForm((prev) => ({ ...prev, password: event.target.value }))}
+                  onChange={(event) =>
+                    setUserForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
                   placeholder="최소 8자, 영문/숫자 혼합"
                   minLength={8}
                   required
@@ -992,7 +1056,9 @@ export function SettingsPage() {
           <div className={styles.permissionsHeader}>
             <div>
               <h4>세부 권한 설정</h4>
-              <p className={styles.helpText}>역할 템플릿을 기반으로 필요 시 읽기/쓰기 권한을 조정하세요.</p>
+              <p className={styles.helpText}>
+                역할 템플릿을 기반으로 필요 시 읽기/쓰기 권한을 조정하세요.
+              </p>
             </div>
             <div className={styles.buttonRow}>
               <button
@@ -1007,7 +1073,9 @@ export function SettingsPage() {
           </div>
 
           {permissionTemplatesError && (
-            <div className={`${styles.feedback} ${styles.feedbackError}`}>{permissionTemplatesError}</div>
+            <div className={`${styles.feedback} ${styles.feedbackError}`}>
+              {permissionTemplatesError}
+            </div>
           )}
 
           <div className={styles.permissionTableWrapper}>
@@ -1029,7 +1097,11 @@ export function SettingsPage() {
                           type="checkbox"
                           checked={permission.read}
                           onChange={(event) =>
-                            handlePermissionToggle(permission.resource, 'read', event.target.checked)
+                            handlePermissionToggle(
+                              permission.resource,
+                              'read',
+                              event.target.checked,
+                            )
                           }
                         />
                         읽기 허용
@@ -1041,7 +1113,11 @@ export function SettingsPage() {
                           type="checkbox"
                           checked={permission.write}
                           onChange={(event) =>
-                            handlePermissionToggle(permission.resource, 'write', event.target.checked)
+                            handlePermissionToggle(
+                              permission.resource,
+                              'write',
+                              event.target.checked,
+                            )
                           }
                         />
                         쓰기 허용

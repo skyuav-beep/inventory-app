@@ -28,34 +28,34 @@ type AuthContextValue = ReturnType<typeof useAuth>;
 
 const createProductsState = (overrides: Partial<ProductsState> = {}): ProductsState =>
   ({
-  items: [
-    {
-      id: 'p-1',
-      code: 'SKU-001',
-      name: '테스트 제품',
-      description: '설명',
-      specification: '10x20',
-      unit: 'EA',
-      safetyStock: 10,
-      remain: 8,
-      status: 'warn',
-      totalIn: 120,
-      totalOut: 112,
-      totalReturn: 4,
-      disabled: false,
-    },
-  ],
-  pagination: { page: 1, size: 20, total: 1 },
-  loading: false,
-  error: null,
-  filters: { search: '', status: 'all', disabledFilter: 'active' },
-  setSearch: vi.fn(),
-  setStatus: vi.fn(),
-  setDisabledFilter: vi.fn(),
-  setPage: vi.fn(),
-  refresh: vi.fn(),
-  summary: { total: 1, low: 0, warn: 1, normal: 0, disabled: 0 },
-  ...overrides,
+    items: [
+      {
+        id: 'p-1',
+        code: 'SKU-001',
+        name: '테스트 제품',
+        description: '설명',
+        specification: '10x20',
+        unit: 'EA',
+        safetyStock: 10,
+        remain: 8,
+        status: 'warn',
+        totalIn: 120,
+        totalOut: 112,
+        totalReturn: 4,
+        disabled: false,
+      },
+    ],
+    pagination: { page: 1, size: 20, total: 1 },
+    loading: false,
+    error: null,
+    filters: { search: '', status: 'all', disabledFilter: 'active' },
+    setSearch: vi.fn(),
+    setStatus: vi.fn(),
+    setDisabledFilter: vi.fn(),
+    setPage: vi.fn(),
+    refresh: vi.fn(),
+    summary: { total: 1, low: 0, warn: 1, normal: 0, disabled: 0 },
+    ...overrides,
   }) as ProductsState;
 
 const createAuthValue = (canWrite: boolean): AuthContextValue =>
@@ -103,7 +103,8 @@ describe('ProductsPage', () => {
     const codeInput = await screen.findByLabelText('제품 코드');
     expect(codeInput).toHaveAttribute('readonly');
 
-    const searchInput = screen.getByPlaceholderText<HTMLInputElement>('제품 코드 또는 이름으로 검색');
+    const searchInput =
+      screen.getByPlaceholderText<HTMLInputElement>('제품 코드 또는 이름으로 검색');
     expect(searchInput.value).toBe('');
   });
 

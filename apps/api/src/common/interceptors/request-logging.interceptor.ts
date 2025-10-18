@@ -1,10 +1,4 @@
-import {
-  CallHandler,
-  ExecutionContext,
-  Injectable,
-  Logger,
-  NestInterceptor,
-} from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Observable, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
@@ -41,8 +35,7 @@ export class RequestLoggingInterceptor implements NestInterceptor {
       }),
       catchError((error: unknown) => {
         const response = context.switchToHttp().getResponse<Response>();
-        const status =
-          response?.statusCode ?? extractStatusFromError(error) ?? 500;
+        const status = response?.statusCode ?? extractStatusFromError(error) ?? 500;
         const duration = Date.now() - startedAt;
         const message = error instanceof Error ? error.message : String(error);
         const stack = error instanceof Error ? error.stack : undefined;

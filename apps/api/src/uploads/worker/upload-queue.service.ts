@@ -23,7 +23,8 @@ export class UploadQueueService {
 
     setImmediate(() => {
       this.process(jobId).catch((error: unknown) => {
-        const reason = error instanceof Error ? error.message : '업로드 처리 중 오류가 발생했습니다.';
+        const reason =
+          error instanceof Error ? error.message : '업로드 처리 중 오류가 발생했습니다.';
         this.logger.error(`Queue processing failed for job ${jobId}: ${reason}`);
       });
     });
@@ -54,7 +55,8 @@ export class UploadQueueService {
         data: { status: UploadStatus.completed, finishedAt: new Date(), lastError: null },
       });
     } catch (rawError) {
-      const reason = rawError instanceof Error ? rawError.message : '알 수 없는 오류가 발생했습니다.';
+      const reason =
+        rawError instanceof Error ? rawError.message : '알 수 없는 오류가 발생했습니다.';
 
       this.logger.error(`Upload job ${jobId} failed: ${reason}`);
 
@@ -69,7 +71,11 @@ export class UploadQueueService {
     return path.join(process.cwd(), 'storage', 'uploads', filename);
   }
 
-  private async persistItems(jobId: string, type: UploadType, rows: ParsedStockRow[]): Promise<void> {
+  private async persistItems(
+    jobId: string,
+    type: UploadType,
+    rows: ParsedStockRow[],
+  ): Promise<void> {
     await this.prisma.uploadJobItem.deleteMany({ where: { jobId } });
 
     for (const [index, row] of rows.entries()) {
@@ -123,7 +129,10 @@ export class UploadQueueService {
           data: { status: UploadStatus.completed, errorMsg: null },
         });
       } catch (operationError) {
-        const message = operationError instanceof Error ? operationError.message : '레코드 저장 중 오류가 발생했습니다.';
+        const message =
+          operationError instanceof Error
+            ? operationError.message
+            : '레코드 저장 중 오류가 발생했습니다.';
         await this.prisma.uploadJobItem.update({
           where: { id: item.id },
           data: { status: UploadStatus.failed, errorMsg: message },

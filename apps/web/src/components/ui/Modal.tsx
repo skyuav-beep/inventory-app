@@ -12,7 +12,15 @@ export interface ModalProps {
   closeOnBackdrop?: boolean;
 }
 
-export function Modal({ open, title, onClose, children, footer, size = 'md', closeOnBackdrop = false }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  size = 'md',
+  closeOnBackdrop = false,
+}: ModalProps) {
   useEffect(() => {
     if (!open) {
       return;

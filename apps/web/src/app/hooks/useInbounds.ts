@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FetchInboundsParams, InboundListItem, InboundListResponse, fetchInbounds } from '../../services/inboundService';
+import {
+  FetchInboundsParams,
+  InboundListItem,
+  InboundListResponse,
+  fetchInbounds,
+} from '../../services/inboundService';
 
 const logError = (err: unknown) => {
   if (err instanceof Error) {
@@ -40,26 +45,23 @@ export function useInbounds(initialFilters: UseInboundsFilters = { search: '' })
   const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
-  const loadInbounds = useCallback(
-    async (params: FetchInboundsParams) => {
-      setLoading(true);
-      setError(null);
+  const loadInbounds = useCallback(async (params: FetchInboundsParams) => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetchInbounds(params);
-        setRawItems(response.data);
-        setPagination(response.page);
-      } catch (err) {
-        logError(err);
-        setRawItems([]);
-        setPagination(DEFAULT_PAGE);
-        setError('입고 내역을 불러오지 못했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+    try {
+      const response = await fetchInbounds(params);
+      setRawItems(response.data);
+      setPagination(response.page);
+    } catch (err) {
+      logError(err);
+      setRawItems([]);
+      setPagination(DEFAULT_PAGE);
+      setError('입고 내역을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void loadInbounds({ page, size: DEFAULT_PAGE.size });
@@ -73,7 +75,8 @@ export function useInbounds(initialFilters: UseInboundsFilters = { search: '' })
 
       const keyword = filters.search.trim().toLowerCase();
       return (
-        item.productName.toLowerCase().includes(keyword) || item.productCode.toLowerCase().includes(keyword)
+        item.productName.toLowerCase().includes(keyword) ||
+        item.productCode.toLowerCase().includes(keyword)
       );
     });
 

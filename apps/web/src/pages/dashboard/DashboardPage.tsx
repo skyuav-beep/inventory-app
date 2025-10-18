@@ -36,7 +36,9 @@ export function DashboardPage() {
         setError(null);
       } catch (err) {
         console.error(err);
-        setError('대시보드 데이터를 불러올 수 없습니다. 로그인 여부를 확인하거나 잠시 후 다시 시도하세요.');
+        setError(
+          '대시보드 데이터를 불러올 수 없습니다. 로그인 여부를 확인하거나 잠시 후 다시 시도하세요.',
+        );
       } finally {
         setLoading(false);
       }
@@ -273,7 +275,11 @@ export function DashboardPage() {
               </div>
               <span className={styles.panelBadge}>{summary?.stockByProduct.length ?? 0} 개</span>
             </header>
-            {summary ? renderInventoryTable(summary.stockByProduct) : <p className={styles.emptyState}>데이터 없음</p>}
+            {summary ? (
+              renderInventoryTable(summary.stockByProduct)
+            ) : (
+              <p className={styles.emptyState}>데이터 없음</p>
+            )}
           </section>
         </>
       )}

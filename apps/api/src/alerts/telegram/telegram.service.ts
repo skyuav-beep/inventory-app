@@ -30,7 +30,10 @@ export class TelegramService {
         this.logger.warn(`Telegram API responded with ${response.status}: ${bodyText}`);
       }
     } catch (error) {
-      this.logger.error('Failed to send Telegram message', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        'Failed to send Telegram message',
+        error instanceof Error ? error.stack : undefined,
+      );
     }
   }
 }

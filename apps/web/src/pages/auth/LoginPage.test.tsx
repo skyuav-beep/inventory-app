@@ -93,7 +93,9 @@ describe('LoginPage', () => {
     await userEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText('로그인에 실패했습니다. 이메일/비밀번호를 확인하세요.')).toBeInTheDocument();
+      expect(
+        screen.getByText('로그인에 실패했습니다. 이메일/비밀번호를 확인하세요.'),
+      ).toBeInTheDocument();
     });
 
     expect(mockLogin).not.toHaveBeenCalled();

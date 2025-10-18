@@ -12,7 +12,8 @@ interface TopbarProps {
 export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
   const location = useLocation();
   const currentRoute =
-    appRoutes.find((route) => route.path === location.pathname) ?? appRoutes.find((route) => route.path === '/');
+    appRoutes.find((route) => route.path === location.pathname) ??
+    appRoutes.find((route) => route.path === '/');
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
@@ -21,7 +22,9 @@ export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
       <div className={styles.heading}>
         <button
           type="button"
-          className={isSidebarOpen ? `${styles.menuButton} ${styles.menuButtonActive}` : styles.menuButton}
+          className={
+            isSidebarOpen ? `${styles.menuButton} ${styles.menuButtonActive}` : styles.menuButton
+          }
           onClick={onToggleSidebar}
           aria-label="사이드바 토글"
         >
@@ -32,7 +35,9 @@ export function Topbar({ onToggleSidebar, isSidebarOpen }: TopbarProps) {
 
         <div>
           <h1 className={styles.title}>{currentRoute?.meta.label ?? '재고 관리'}</h1>
-          <p className={styles.subtitle}>{currentRoute?.meta.description ?? '재고 현황을 한눈에 확인하세요.'}</p>
+          <p className={styles.subtitle}>
+            {currentRoute?.meta.description ?? '재고 현황을 한눈에 확인하세요.'}
+          </p>
         </div>
       </div>
 

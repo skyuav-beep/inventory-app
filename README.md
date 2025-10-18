@@ -18,14 +18,14 @@ npm install
 
 ## 3. 폴더 구조 요약
 
-| 경로              | 설명                                   |
-| ----------------- | -------------------------------------- |
-| `apps/api`        | NestJS API 서버                        |
-| `apps/web`        | Vite 기반 React 클라이언트             |
-| `packages/*`      | 공유 타입/설정                         |
-| `infra`           | Docker, nginx 등 배포 자산             |
-| `docs`            | 기획/설계 문서                         |
-| `inventory-dev-plan.md` | 스프린트 체크리스트 및 진행 상황  |
+| 경로                    | 설명                             |
+| ----------------------- | -------------------------------- |
+| `apps/api`              | NestJS API 서버                  |
+| `apps/web`              | Vite 기반 React 클라이언트       |
+| `packages/*`            | 공유 타입/설정                   |
+| `infra`                 | Docker, nginx 등 배포 자산       |
+| `docs`                  | 기획/설계 문서                   |
+| `inventory-dev-plan.md` | 스프린트 체크리스트 및 진행 상황 |
 
 ## 4. 환경 변수 설정
 
@@ -135,14 +135,14 @@ npm run backup:db
 
 정기 백업이 필요한 경우 CI/CD 또는 cron 잡에서 위 스크립트를 호출하고, 생성된 파일을 원격 스토리지(S3 등)로 업로드하도록 구성하세요.
 
-  ```bash
-  export DATABASE_URL="postgresql://user:password@localhost:5432/inventory_test"
-  export E2E_USE_REAL_DB=true
-  npm --workspace apps/api run prisma:migrate:deploy
-  npm test
-  ```
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/inventory_test"
+export E2E_USE_REAL_DB=true
+npm --workspace apps/api run prisma:migrate:deploy
+npm test
+```
 
-  테스트 전에 데이터베이스가 초기화되며, 관리자/뷰어 계정과 텔레그램 설정이 시드됩니다.
+테스트 전에 데이터베이스가 초기화되며, 관리자/뷰어 계정과 텔레그램 설정이 시드됩니다.
 
 ## 8. CI 파이프라인 참고
 
@@ -152,14 +152,14 @@ npm run backup:db
 
 ## 9. 자주 사용하는 명령어
 
-| 명령어                                                     | 설명                                |
-| ---------------------------------------------------------- | ----------------------------------- |
-| `npm run build`                                            | 워크스페이스 전체 빌드              |
-| `npm --workspace apps/api run prisma:generate`            | Prisma Client 재생성                |
-| `npm --workspace apps/api run prisma:migrate:deploy`      | 마이그레이션 적용                   |
-| `npm --workspace apps/api run prisma:seed`                | 관리자/기본 설정 시드               |
-| `npm --workspace apps/api run start:dev`                  | API 개발 서버                        |
-| `npm --workspace apps/web run dev -- --host 0.0.0.0`      | 웹 개발 서버                         |
+| 명령어                                               | 설명                   |
+| ---------------------------------------------------- | ---------------------- |
+| `npm run build`                                      | 워크스페이스 전체 빌드 |
+| `npm --workspace apps/api run prisma:generate`       | Prisma Client 재생성   |
+| `npm --workspace apps/api run prisma:migrate:deploy` | 마이그레이션 적용      |
+| `npm --workspace apps/api run prisma:seed`           | 관리자/기본 설정 시드  |
+| `npm --workspace apps/api run start:dev`             | API 개발 서버          |
+| `npm --workspace apps/web run dev -- --host 0.0.0.0` | 웹 개발 서버           |
 
 ## 10. 보안 & 운영 메모
 

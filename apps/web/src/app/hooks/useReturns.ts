@@ -39,7 +39,9 @@ interface UseReturnsState {
 
 const DEFAULT_PAGE = { page: 1, size: 20, total: 0 };
 
-export function useReturns(initialFilters: UseReturnsFilters = { search: '', status: 'all' }): UseReturnsState {
+export function useReturns(
+  initialFilters: UseReturnsFilters = { search: '', status: 'all' },
+): UseReturnsState {
   const [rawItems, setRawItems] = useState<ReturnListItem[]>([]);
   const [items, setItems] = useState<ReturnListItem[]>([]);
   const [pagination, setPagination] = useState<ReturnListResponse['page']>(DEFAULT_PAGE);
@@ -49,26 +51,23 @@ export function useReturns(initialFilters: UseReturnsFilters = { search: '', sta
   const [page, setPageState] = useState<number>(DEFAULT_PAGE.page);
   const [refreshIndex, setRefreshIndex] = useState(0);
 
-  const loadReturns = useCallback(
-    async (params: FetchReturnsParams) => {
-      setLoading(true);
-      setError(null);
+  const loadReturns = useCallback(async (params: FetchReturnsParams) => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetchReturns(params);
-        setRawItems(response.data);
-        setPagination(response.page);
-      } catch (err) {
-        logError(err);
-        setRawItems([]);
-        setPagination(DEFAULT_PAGE);
-        setError('반품 내역을 불러오지 못했습니다.');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [],
-  );
+    try {
+      const response = await fetchReturns(params);
+      setRawItems(response.data);
+      setPagination(response.page);
+    } catch (err) {
+      logError(err);
+      setRawItems([]);
+      setPagination(DEFAULT_PAGE);
+      setError('반품 내역을 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const params: FetchReturnsParams = {

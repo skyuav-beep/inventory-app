@@ -21,4 +21,3 @@ export function toUploadJobItemEntity(record: UploadJobItem): UploadJobItemEntit
     createdAt: record.createdAt,
   };
 }
-

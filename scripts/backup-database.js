@@ -53,7 +53,9 @@ function parseArgs(argv) {
   }
 
   if (!SUPPORTED_FORMATS.has(result.format)) {
-    console.error(`Unsupported format "${result.format}". Use one of: ${Array.from(SUPPORTED_FORMATS).join(', ')}`);
+    console.error(
+      `Unsupported format "${result.format}". Use one of: ${Array.from(SUPPORTED_FORMATS).join(', ')}`,
+    );
     process.exit(1);
   }
 
@@ -118,7 +120,9 @@ async function run() {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    console.error('DATABASE_URL is not set. Please define it in your environment (e.g. .env file).');
+    console.error(
+      'DATABASE_URL is not set. Please define it in your environment (e.g. .env file).',
+    );
     process.exit(1);
   }
 
@@ -148,7 +152,11 @@ async function run() {
 
     child.on('error', (error) => {
       if (error.code === 'ENOENT') {
-        reject(new Error('pg_dump command not found. Please install PostgreSQL client tools or ensure pg_dump is on PATH.'));
+        reject(
+          new Error(
+            'pg_dump command not found. Please install PostgreSQL client tools or ensure pg_dump is on PATH.',
+          ),
+        );
         return;
       }
       reject(error);

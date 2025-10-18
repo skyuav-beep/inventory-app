@@ -7,7 +7,15 @@ import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { AlertsService } from '../../src/alerts/alerts.service';
 import { TelegramService } from '../../src/alerts/telegram/telegram.service';
-import { AuditAction, AlertLevel, Channel, ProductStatus, Resource, Role, ReturnStatus } from '@prisma/client';
+import {
+  AuditAction,
+  AlertLevel,
+  Channel,
+  ProductStatus,
+  Resource,
+  Role,
+  ReturnStatus,
+} from '@prisma/client';
 
 jest.setTimeout(60000);
 
@@ -174,7 +182,7 @@ class InMemoryPrismaService {
         id: randomUUID(),
         chatId: '123456',
         label: '운영팀',
-      enabled: true,
+        enabled: true,
         settingId: this.notificationSettingRecord.id,
         createdAt: new Date(),
       },
@@ -359,7 +367,13 @@ class InMemoryPrismaService {
         const product = this.products.find((item) => item.id === id);
         return product ? { ...product } : null;
       },
-      update: async ({ where: { id }, data }: { where: { id: string }; data: Partial<ProductRecord> }) => {
+      update: async ({
+        where: { id },
+        data,
+      }: {
+        where: { id: string };
+        data: Partial<ProductRecord>;
+      }) => {
         const product = this.products.find((item) => item.id === id);
         if (!product) {
           throw new Error('Product not found');
@@ -412,7 +426,8 @@ class InMemoryPrismaService {
               }
 
               if (sorter.createdAt) {
-                const compare = (a.createdAt.getTime() - b.createdAt.getTime()) * directions[sorter.createdAt];
+                const compare =
+                  (a.createdAt.getTime() - b.createdAt.getTime()) * directions[sorter.createdAt];
                 if (compare !== 0) {
                   return compare;
                 }
@@ -436,7 +451,9 @@ class InMemoryPrismaService {
         }
         return collection.length;
       },
-      aggregate: async ({ where }: { where?: { disabled?: boolean; status?: ProductStatus } } = {}) => {
+      aggregate: async ({
+        where,
+      }: { where?: { disabled?: boolean; status?: ProductStatus } } = {}) => {
         let collection = [...this.products];
         if (typeof where?.disabled === 'boolean') {
           collection = collection.filter((product) => product.disabled === where.disabled);
@@ -486,9 +503,13 @@ class InMemoryPrismaService {
           collection.sort((a, b) => a.dateIn.getTime() - b.dateIn.getTime());
         }
 
-        return collection.slice(skip, skip + take).map((record) =>
-          include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record },
-        );
+        return collection
+          .slice(skip, skip + take)
+          .map((record) =>
+            include?.product
+              ? { ...record, product: this.findProduct(record.productId) }
+              : { ...record },
+          );
       },
       count: async ({ where }: { where?: { productId?: string } } = {}) => {
         let collection = [...this.inbounds];
@@ -515,15 +536,25 @@ class InMemoryPrismaService {
 
         this.inbounds.push(record);
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
-      findUnique: async ({ where: { id }, include }: { where: { id: string }; include?: { product?: boolean } }) => {
+      findUnique: async ({
+        where: { id },
+        include,
+      }: {
+        where: { id: string };
+        include?: { product?: boolean };
+      }) => {
         const record = this.inbounds.find((item) => item.id === id);
         if (!record) {
           return null;
         }
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
       update: async ({
         where: { id },
@@ -541,7 +572,9 @@ class InMemoryPrismaService {
 
         Object.assign(record, data);
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
       delete: async ({ where: { id } }: { where: { id: string } }) => {
         const index = this.inbounds.findIndex((item) => item.id === id);
@@ -582,9 +615,13 @@ class InMemoryPrismaService {
           collection.sort((a, b) => a.dateOut.getTime() - b.dateOut.getTime());
         }
 
-        return collection.slice(skip, skip + take).map((record) =>
-          include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record },
-        );
+        return collection
+          .slice(skip, skip + take)
+          .map((record) =>
+            include?.product
+              ? { ...record, product: this.findProduct(record.productId) }
+              : { ...record },
+          );
       },
       count: async ({ where }: { where?: { productId?: string } } = {}) => {
         let collection = [...this.outbounds];
@@ -611,15 +648,25 @@ class InMemoryPrismaService {
 
         this.outbounds.push(record);
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
-      findUnique: async ({ where: { id }, include }: { where: { id: string }; include?: { product?: boolean } }) => {
+      findUnique: async ({
+        where: { id },
+        include,
+      }: {
+        where: { id: string };
+        include?: { product?: boolean };
+      }) => {
         const record = this.outbounds.find((item) => item.id === id);
         if (!record) {
           return null;
         }
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
       update: async ({
         where: { id },
@@ -637,7 +684,9 @@ class InMemoryPrismaService {
 
         Object.assign(record, data);
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
       delete: async ({ where: { id } }: { where: { id: string } }) => {
         const index = this.outbounds.findIndex((item) => item.id === id);
@@ -682,9 +731,13 @@ class InMemoryPrismaService {
           collection.sort((a, b) => a.dateReturn.getTime() - b.dateReturn.getTime());
         }
 
-        return collection.slice(skip, skip + take).map((record) =>
-          include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record },
-        );
+        return collection
+          .slice(skip, skip + take)
+          .map((record) =>
+            include?.product
+              ? { ...record, product: this.findProduct(record.productId) }
+              : { ...record },
+          );
       },
       count: async ({ where }: { where?: { productId?: string; status?: ReturnStatus } } = {}) => {
         let collection = [...this.returnRecords];
@@ -724,15 +777,25 @@ class InMemoryPrismaService {
 
         this.returnRecords.push(record);
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
-      findUnique: async ({ where: { id }, include }: { where: { id: string }; include?: { product?: boolean } }) => {
+      findUnique: async ({
+        where: { id },
+        include,
+      }: {
+        where: { id: string };
+        include?: { product?: boolean };
+      }) => {
         const record = this.returnRecords.find((item) => item.id === id);
         if (!record) {
           return null;
         }
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
       update: async ({
         where: { id },
@@ -750,7 +813,9 @@ class InMemoryPrismaService {
 
         Object.assign(record, data);
 
-        return include?.product ? { ...record, product: this.findProduct(record.productId) } : { ...record };
+        return include?.product
+          ? { ...record, product: this.findProduct(record.productId) }
+          : { ...record };
       },
       delete: async ({ where: { id } }: { where: { id: string } }) => {
         const index = this.returnRecords.findIndex((item) => item.id === id);
@@ -766,21 +831,39 @@ class InMemoryPrismaService {
 
   get notificationSettingModel() {
     return {
-      findUnique: async ({ where: { id }, include }: { where: { id: string }; include?: { telegramTargets?: boolean } }) => {
+      findUnique: async ({
+        where: { id },
+        include,
+      }: {
+        where: { id: string };
+        include?: { telegramTargets?: boolean };
+      }) => {
         if (this.notificationSettingRecord.id !== id) {
           return null;
         }
 
         return this.composeNotificationSetting(include);
       },
-      findUniqueOrThrow: async ({ where: { id }, include }: { where: { id: string }; include?: { telegramTargets?: boolean } }) => {
+      findUniqueOrThrow: async ({
+        where: { id },
+        include,
+      }: {
+        where: { id: string };
+        include?: { telegramTargets?: boolean };
+      }) => {
         if (this.notificationSettingRecord.id !== id) {
           throw new Error('Notification setting not found');
         }
 
         return this.composeNotificationSetting(include);
       },
-      create: async ({ data, include }: { data: Partial<NotificationSettingRecord>; include?: { telegramTargets?: boolean } }) => {
+      create: async ({
+        data,
+        include,
+      }: {
+        data: Partial<NotificationSettingRecord>;
+        include?: { telegramTargets?: boolean };
+      }) => {
         if (!this.notificationSettingRecord) {
           const now = new Date();
           this.notificationSettingRecord = {
@@ -829,7 +912,9 @@ class InMemoryPrismaService {
   get telegramTargetModel() {
     return {
       deleteMany: async ({ where: { settingId } }: { where: { settingId: string } }) => {
-        this.telegramTargets = this.telegramTargets.filter((target) => target.settingId !== settingId);
+        this.telegramTargets = this.telegramTargets.filter(
+          (target) => target.settingId !== settingId,
+        );
       },
       createMany: async ({ data }: { data: Array<Partial<TelegramTargetRecord>> }) => {
         const now = new Date();
@@ -883,10 +968,14 @@ class InMemoryPrismaService {
         const slice = filtered.slice(skip, skip + take);
 
         return slice.map((alert) =>
-          include?.product ? { ...alert, product: this.findProduct(alert.productId) } : { ...alert },
+          include?.product
+            ? { ...alert, product: this.findProduct(alert.productId) }
+            : { ...alert },
         );
       },
-      count: async ({ where }: { where?: { productId?: string; level?: AlertLevel; channel?: Channel } } = {}) => {
+      count: async ({
+        where,
+      }: { where?: { productId?: string; level?: AlertLevel; channel?: Channel } } = {}) => {
         if (!where) {
           return this.alerts.length;
         }
@@ -942,13 +1031,21 @@ class InMemoryPrismaService {
 
         return { ...record };
       },
-      findUnique: async ({ where: { id }, include }: { where: { id: string }; include?: { product?: boolean } }) => {
+      findUnique: async ({
+        where: { id },
+        include,
+      }: {
+        where: { id: string };
+        include?: { product?: boolean };
+      }) => {
         const found = this.alerts.find((alert) => alert.id === id);
         if (!found) {
           return null;
         }
 
-        return include?.product ? { ...found, product: this.findProduct(found.productId) } : { ...found };
+        return include?.product
+          ? { ...found, product: this.findProduct(found.productId) }
+          : { ...found };
       },
       update: async ({
         where: { id },
@@ -966,9 +1063,15 @@ class InMemoryPrismaService {
 
         Object.assign(found, data);
 
-        return include?.product ? { ...found, product: this.findProduct(found.productId) } : { ...found };
+        return include?.product
+          ? { ...found, product: this.findProduct(found.productId) }
+          : { ...found };
       },
-      findFirst: async ({ where }: { where: { productId?: string; channel?: Channel; sentAt?: { not: null } } }) => {
+      findFirst: async ({
+        where,
+      }: {
+        where: { productId?: string; channel?: Channel; sentAt?: { not: null } };
+      }) => {
         const filtered = this.alerts
           .filter((alert) => {
             if (where.productId && alert.productId !== where.productId) {
@@ -1205,528 +1308,532 @@ describe('AppModule e2e', () => {
 
       const operatorToken = operatorLoginResponse.body.accessToken as string;
 
-  await request(app.getHttpServer())
-    .get('/api/v1/auth/me')
-    .set('Authorization', `Bearer ${viewerToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.email !== VIEWER_EMAIL) {
-        throw new Error('viewer email mismatch');
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${viewerToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.email !== VIEWER_EMAIL) {
+            throw new Error('viewer email mismatch');
+          }
+          if (res.body.role !== 'viewer') {
+            throw new Error('viewer role mismatch');
+          }
+          if (!Array.isArray(res.body.permissions)) {
+            throw new Error('permissions not returned');
+          }
+          const settingsPermission = res.body.permissions.find(
+            (permission: { resource: string }) => permission.resource === 'settings',
+          );
+          if (!settingsPermission) {
+            throw new Error('viewer permissions missing settings resource');
+          }
+          if (settingsPermission.read !== false || settingsPermission.write !== false) {
+            throw new Error('viewer should not have settings permission');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.email !== OPERATOR_EMAIL) {
+            throw new Error('operator email mismatch');
+          }
+          if (res.body.role !== 'operator') {
+            throw new Error('operator role mismatch');
+          }
+          const writable = res.body.permissions.filter(
+            (permission: { write: boolean }) => permission.write,
+          );
+          if (writable.length === 0) {
+            throw new Error('operator should have writable permissions');
+          }
+        });
+
+      const productResponse = await request(app.getHttpServer())
+        .post('/api/v1/products')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          code: 'SKU-NEW',
+          name: '테스트 제품',
+          safetyStock: 5,
+        })
+        .expect(201);
+
+      const productId = productResponse.body.id as string;
+      if (!productId) {
+        throw new Error('product id missing');
       }
-      if (res.body.role !== 'viewer') {
-        throw new Error('viewer role mismatch');
+
+      await request(app.getHttpServer())
+        .get('/api/v1/products')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
+            throw new Error('제품 목록이 비어 있습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.id !== productId) {
+            throw new Error('제품 상세 조회 실패');
+          }
+          if (res.body.remain !== 0) {
+            throw new Error('초기 재고가 0이 아닙니다.');
+          }
+        });
+
+      const inboundResponse = await request(app.getHttpServer())
+        .post('/api/v1/inbounds')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({
+          productId,
+          quantity: 15,
+          note: '초기 입고',
+        })
+        .expect(201);
+
+      const inboundId = inboundResponse.body.id as string;
+      if (!inboundId) {
+        throw new Error('입고 ID가 없습니다.');
       }
-      if (!Array.isArray(res.body.permissions)) {
-        throw new Error('permissions not returned');
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 15) {
+            throw new Error('입고 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/inbounds/${inboundId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({ quantity: 18 })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/inbounds/${inboundId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.id !== inboundId) {
+            throw new Error('입고 상세 조회 실패');
+          }
+          if (res.body.quantity !== 18) {
+            throw new Error('입고 수량 업데이트 실패');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/inbounds')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
+            throw new Error('입고 목록이 비어 있습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 18) {
+            throw new Error('입고 수정 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      const outboundResponse = await request(app.getHttpServer())
+        .post('/api/v1/outbounds')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({
+          productId,
+          quantity: 5,
+          note: '출고 테스트',
+        })
+        .expect(201);
+
+      const outboundId = outboundResponse.body.id as string;
+      if (!outboundId) {
+        throw new Error('출고 ID가 없습니다.');
       }
-      const settingsPermission = res.body.permissions.find(
-        (permission: { resource: string }) => permission.resource === 'settings',
-      );
-      if (!settingsPermission) {
-        throw new Error('viewer permissions missing settings resource');
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 13) {
+            throw new Error('출고 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/outbounds/${outboundId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({ quantity: 7 })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/outbounds/${outboundId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.id !== outboundId) {
+            throw new Error('출고 상세 조회 실패');
+          }
+          if (res.body.quantity !== 7) {
+            throw new Error('출고 수량 업데이트 실패');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 11) {
+            throw new Error('출고 수정 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      const returnResponse = await request(app.getHttpServer())
+        .post('/api/v1/returns')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({
+          productId,
+          quantity: 3,
+          reason: '반품 사유',
+          status: 'completed',
+        })
+        .expect(201);
+
+      const returnId = returnResponse.body.id as string;
+      if (!returnId) {
+        throw new Error('반품 ID가 없습니다.');
       }
-      if (settingsPermission.read !== false || settingsPermission.write !== false) {
-        throw new Error('viewer should not have settings permission');
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 14) {
+            throw new Error('반품 등록 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/returns/${returnId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({ quantity: 4 })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/returns/${returnId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.quantity !== 4) {
+            throw new Error('반품 수량 업데이트 실패');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 15) {
+            throw new Error('반품 수정 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/returns/${returnId}/status`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({ status: 'pending' })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 11) {
+            throw new Error('반품 상태 변경 후 재고가 일치하지 않습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/returns/${returnId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!res.body.success) {
+            throw new Error('반품 삭제 실패');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/outbounds/${outboundId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .delete(`/api/v1/inbounds/${inboundId}`)
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .get(`/api/v1/products/${productId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (res.body.remain !== 0) {
+            throw new Error('입출반 삭제 후 재고가 초기화되지 않았습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/inbounds')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length !== 0) {
+            throw new Error('입고 목록이 비어 있어야 합니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/outbounds')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length !== 0) {
+            throw new Error('출고 목록이 비어 있어야 합니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/returns')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length !== 0) {
+            throw new Error('반품 목록이 비어 있어야 합니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${viewerToken}`)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
+            throw new Error('operator cannot see users list');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
+            throw new Error('사용자 목록이 비어 있습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/permissions/templates')
+        .set('Authorization', `Bearer ${viewerToken}`)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .get('/api/v1/permissions/templates')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .expect(200)
+        .expect((res) => {
+          if (!res.body.data || !res.body.data.operator) {
+            throw new Error('operator permission template missing');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${operatorToken}`)
+        .send({
+          email: 'reader@example.com',
+          name: 'Reader',
+          role: 'viewer',
+          password: 'Reader123!',
+          permissions: [
+            {
+              resource: 'products',
+              read: true,
+              write: false,
+            },
+          ],
+        })
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/users')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          email: 'new.staff@example.com',
+          name: 'New Staff',
+          role: 'operator',
+          password: 'StaffPass123!',
+        })
+        .expect(201)
+        .expect((res) => {
+          if (!res.body || res.body.email !== 'new.staff@example.com') {
+            throw new Error('admin user creation failed');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/users')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          const hasNewUser = Array.isArray(res.body.data)
+            ? res.body.data.some(
+                (user: { email: string }) => user.email === 'new.staff@example.com',
+              )
+            : false;
+          if (!hasNewUser) {
+            throw new Error('created user not found in listing');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .get('/api/v1/permissions/templates')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (!res.body.data || !res.body.data.admin) {
+            throw new Error('권한 템플릿 응답이 올바르지 않습니다.');
+          }
+        });
+
+      await request(app.getHttpServer())
+        .post('/api/v1/alerts/test')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+        .expect((res) => {
+          if (!res.body.decision) {
+            throw new Error('알림 정책 결과가 없습니다.');
+          }
+        });
+
+      if (telegramStub.sentMessages.length === 0) {
+        throw new Error('텔레그램 전송이 호출되지 않았습니다.');
       }
-    });
 
-  await request(app.getHttpServer())
-    .get('/api/v1/auth/me')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.email !== OPERATOR_EMAIL) {
-        throw new Error('operator email mismatch');
-      }
-      if (res.body.role !== 'operator') {
-        throw new Error('operator role mismatch');
-      }
-      const writable = res.body.permissions.filter(
-        (permission: { write: boolean }) => permission.write,
-      );
-      if (writable.length === 0) {
-        throw new Error('operator should have writable permissions');
-      }
-    });
+      const healthResponse = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+      expect(healthResponse.body).toHaveProperty('status');
+      expect(healthResponse.body).toHaveProperty('services.database.status');
 
-  const productResponse = await request(app.getHttpServer())
-    .post('/api/v1/products')
-    .set('Authorization', `Bearer ${token}`)
-    .send({
-      code: 'SKU-NEW',
-      name: '테스트 제품',
-      safetyStock: 5,
-    })
-    .expect(201);
+      telegramStub.sentMessages = [];
 
-  const productId = productResponse.body.id as string;
-  if (!productId) {
-    throw new Error('product id missing');
-  }
-
-  await request(app.getHttpServer())
-    .get('/api/v1/products')
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
-        throw new Error('제품 목록이 비어 있습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.id !== productId) {
-        throw new Error('제품 상세 조회 실패');
-      }
-      if (res.body.remain !== 0) {
-        throw new Error('초기 재고가 0이 아닙니다.');
-      }
-    });
-
-  const inboundResponse = await request(app.getHttpServer())
-    .post('/api/v1/inbounds')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({
-      productId,
-      quantity: 15,
-      note: '초기 입고',
-    })
-    .expect(201);
-
-  const inboundId = inboundResponse.body.id as string;
-  if (!inboundId) {
-    throw new Error('입고 ID가 없습니다.');
-  }
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 15) {
-        throw new Error('입고 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .patch(`/api/v1/inbounds/${inboundId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({ quantity: 18 })
-    .expect(200);
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/inbounds/${inboundId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.id !== inboundId) {
-        throw new Error('입고 상세 조회 실패');
-      }
-      if (res.body.quantity !== 18) {
-        throw new Error('입고 수량 업데이트 실패');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/inbounds')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
-        throw new Error('입고 목록이 비어 있습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 18) {
-        throw new Error('입고 수정 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  const outboundResponse = await request(app.getHttpServer())
-    .post('/api/v1/outbounds')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({
-      productId,
-      quantity: 5,
-      note: '출고 테스트',
-    })
-    .expect(201);
-
-  const outboundId = outboundResponse.body.id as string;
-  if (!outboundId) {
-    throw new Error('출고 ID가 없습니다.');
-  }
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 13) {
-        throw new Error('출고 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .patch(`/api/v1/outbounds/${outboundId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({ quantity: 7 })
-    .expect(200);
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/outbounds/${outboundId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.id !== outboundId) {
-        throw new Error('출고 상세 조회 실패');
-      }
-      if (res.body.quantity !== 7) {
-        throw new Error('출고 수량 업데이트 실패');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 11) {
-        throw new Error('출고 수정 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  const returnResponse = await request(app.getHttpServer())
-    .post('/api/v1/returns')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({
-      productId,
-      quantity: 3,
-      reason: '반품 사유',
-      status: 'completed',
-    })
-    .expect(201);
-
-  const returnId = returnResponse.body.id as string;
-  if (!returnId) {
-    throw new Error('반품 ID가 없습니다.');
-  }
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 14) {
-        throw new Error('반품 등록 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .patch(`/api/v1/returns/${returnId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({ quantity: 4 })
-    .expect(200);
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/returns/${returnId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.quantity !== 4) {
-        throw new Error('반품 수량 업데이트 실패');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 15) {
-        throw new Error('반품 수정 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .patch(`/api/v1/returns/${returnId}/status`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({ status: 'pending' })
-    .expect(200);
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 11) {
-        throw new Error('반품 상태 변경 후 재고가 일치하지 않습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .delete(`/api/v1/returns/${returnId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!res.body.success) {
-        throw new Error('반품 삭제 실패');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .delete(`/api/v1/outbounds/${outboundId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200);
-
-  await request(app.getHttpServer())
-    .delete(`/api/v1/inbounds/${inboundId}`)
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200);
-
-  await request(app.getHttpServer())
-    .get(`/api/v1/products/${productId}`)
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (res.body.remain !== 0) {
-        throw new Error('입출반 삭제 후 재고가 초기화되지 않았습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/inbounds')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length !== 0) {
-        throw new Error('입고 목록이 비어 있어야 합니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/outbounds')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length !== 0) {
-        throw new Error('출고 목록이 비어 있어야 합니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/returns')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length !== 0) {
-        throw new Error('반품 목록이 비어 있어야 합니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/users')
-    .set('Authorization', `Bearer ${viewerToken}`)
-    .expect(403);
-
-  await request(app.getHttpServer())
-    .get('/api/v1/users')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
-        throw new Error('operator cannot see users list');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/users')
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (!Array.isArray(res.body.data) || res.body.data.length === 0) {
-        throw new Error('사용자 목록이 비어 있습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/permissions/templates')
-    .set('Authorization', `Bearer ${viewerToken}`)
-    .expect(403);
-
-  await request(app.getHttpServer())
-    .get('/api/v1/permissions/templates')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .expect(200)
-    .expect((res) => {
-      if (!res.body.data || !res.body.data.operator) {
-        throw new Error('operator permission template missing');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .post('/api/v1/users')
-    .set('Authorization', `Bearer ${operatorToken}`)
-    .send({
-      email: 'reader@example.com',
-      name: 'Reader',
-      role: 'viewer',
-      password: 'Reader123!',
-      permissions: [
-        {
-          resource: 'products',
-          read: true,
-          write: false,
-        },
-      ],
-    })
-    .expect(403);
-
-  await request(app.getHttpServer())
-    .post('/api/v1/users')
-    .set('Authorization', `Bearer ${token}`)
-    .send({
-      email: 'new.staff@example.com',
-      name: 'New Staff',
-      role: 'operator',
-      password: 'StaffPass123!',
-    })
-    .expect(201)
-    .expect((res) => {
-      if (!res.body || res.body.email !== 'new.staff@example.com') {
-        throw new Error('admin user creation failed');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/users')
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      const hasNewUser = Array.isArray(res.body.data)
-        ? res.body.data.some((user: { email: string }) => user.email === 'new.staff@example.com')
-        : false;
-      if (!hasNewUser) {
-        throw new Error('created user not found in listing');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .get('/api/v1/permissions/templates')
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (!res.body.data || !res.body.data.admin) {
-        throw new Error('권한 템플릿 응답이 올바르지 않습니다.');
-      }
-    });
-
-  await request(app.getHttpServer())
-    .post('/api/v1/alerts/test')
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200)
-    .expect((res) => {
-      if (!res.body.decision) {
-        throw new Error('알림 정책 결과가 없습니다.');
-      }
-    });
-
-  if (telegramStub.sentMessages.length === 0) {
-    throw new Error('텔레그램 전송이 호출되지 않았습니다.');
-  }
-
-  const healthResponse = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
-  expect(healthResponse.body).toHaveProperty('status');
-  expect(healthResponse.body).toHaveProperty('services.database.status');
-
-  telegramStub.sentMessages = [];
-
-  const updateQuietHoursPayload = {
-    enabled: true,
-    botToken: 'test-token',
-    cooldownMinutes: 1,
-    quietHours: '00-23',
-    targets: [
-      {
-        chatId: '123456',
-        label: '운영팀',
+      const updateQuietHoursPayload = {
         enabled: true,
-      },
-    ],
-  };
+        botToken: 'test-token',
+        cooldownMinutes: 1,
+        quietHours: '00-23',
+        targets: [
+          {
+            chatId: '123456',
+            label: '운영팀',
+            enabled: true,
+          },
+        ],
+      };
 
-  await request(app.getHttpServer())
-    .put('/api/v1/settings/notifications/telegram')
-    .set('Authorization', `Bearer ${token}`)
-    .send(updateQuietHoursPayload)
-    .expect(200);
+      await request(app.getHttpServer())
+        .put('/api/v1/settings/notifications/telegram')
+        .set('Authorization', `Bearer ${token}`)
+        .send(updateQuietHoursPayload)
+        .expect(200);
 
-  const deferredResponse = await request(app.getHttpServer())
-    .post('/api/v1/alerts/test')
-    .set('Authorization', `Bearer ${token}`)
-    .expect(200);
+      const deferredResponse = await request(app.getHttpServer())
+        .post('/api/v1/alerts/test')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
 
-  if (deferredResponse.body.success !== false || deferredResponse.body.decision?.reason !== 'quiet_hours') {
-    throw new Error('조용시간 정책이 적용되어야 합니다.');
-  }
+      if (
+        deferredResponse.body.success !== false ||
+        deferredResponse.body.decision?.reason !== 'quiet_hours'
+      ) {
+        throw new Error('조용시간 정책이 적용되어야 합니다.');
+      }
 
-  const pendingAlerts = await prisma.alert.findMany({ where: { sentAt: null } });
+      const pendingAlerts = await prisma.alert.findMany({ where: { sentAt: null } });
 
-  if (!Array.isArray(pendingAlerts) || pendingAlerts.length === 0) {
-    throw new Error('지연 알림이 생성되지 않았습니다.');
-  }
+      if (!Array.isArray(pendingAlerts) || pendingAlerts.length === 0) {
+        throw new Error('지연 알림이 생성되지 않았습니다.');
+      }
 
-  const pendingAlert = pendingAlerts[pendingAlerts.length - 1];
+      const pendingAlert = pendingAlerts[pendingAlerts.length - 1];
 
-  if (!pendingAlert.retryAt) {
-    throw new Error('지연 알림에 재시도 시간이 설정되지 않았습니다.');
-  }
+      if (!pendingAlert.retryAt) {
+        throw new Error('지연 알림에 재시도 시간이 설정되지 않았습니다.');
+      }
 
-  if (pendingAlert.retryReason !== 'quiet_hours') {
-    throw new Error('지연 알림의 사유가 quiet_hours 이어야 합니다.');
-  }
+      if (pendingAlert.retryReason !== 'quiet_hours') {
+        throw new Error('지연 알림의 사유가 quiet_hours 이어야 합니다.');
+      }
 
-  await (prisma.alert as any).update({
-    where: { id: pendingAlert.id },
-    data: { retryAt: new Date(Date.now() - 60 * 1000) },
-  });
+      await (prisma.alert as any).update({
+        where: { id: pendingAlert.id },
+        data: { retryAt: new Date(Date.now() - 60 * 1000) },
+      });
 
-  await request(app.getHttpServer())
-    .put('/api/v1/settings/notifications/telegram')
-    .set('Authorization', `Bearer ${token}`)
-    .send({ ...updateQuietHoursPayload, quietHours: '23-23' })
-    .expect(200);
+      await request(app.getHttpServer())
+        .put('/api/v1/settings/notifications/telegram')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ ...updateQuietHoursPayload, quietHours: '23-23' })
+        .expect(200);
 
-  const alertsService = moduleRef.get(AlertsService);
-  const retryResult = await alertsService.processPendingAlert(pendingAlert.id);
+      const alertsService = moduleRef.get(AlertsService);
+      const retryResult = await alertsService.processPendingAlert(pendingAlert.id);
 
-  if (retryResult !== 'sent') {
-    throw new Error('지연 알림 재시도가 성공적으로 처리되지 않았습니다.');
-  }
+      if (retryResult !== 'sent') {
+        throw new Error('지연 알림 재시도가 성공적으로 처리되지 않았습니다.');
+      }
 
-  if (telegramStub.sentMessages.length === 0) {
-    throw new Error('지연 알림 재시도 후에도 텔레그램 전송이 호출되지 않았습니다.');
-  }
+      if (telegramStub.sentMessages.length === 0) {
+        throw new Error('지연 알림 재시도 후에도 텔레그램 전송이 호출되지 않았습니다.');
+      }
 
-  const refreshedAlert = await prisma.alert.findUnique({ where: { id: pendingAlert.id } });
+      const refreshedAlert = await prisma.alert.findUnique({ where: { id: pendingAlert.id } });
 
-  if (!refreshedAlert?.sentAt) {
-    throw new Error('재시도 후 알림이 발송 완료 상태가 아닙니다.');
-  }
+      if (!refreshedAlert?.sentAt) {
+        throw new Error('재시도 후 알림이 발송 완료 상태가 아닙니다.');
+      }
 
-  if (refreshedAlert.retryAt != null || refreshedAlert.retryReason != null) {
-    throw new Error('재시도 후 알림의 재시도 메타데이터가 초기화되지 않았습니다.');
-  }
-
+      if (refreshedAlert.retryAt != null || refreshedAlert.retryReason != null) {
+        throw new Error('재시도 후 알림의 재시도 메타데이터가 초기화되지 않았습니다.');
+      }
     } finally {
       if (app) {
         await app.close();

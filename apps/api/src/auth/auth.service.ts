@@ -41,7 +41,10 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto, context?: { ip?: string; userAgent?: string }): Promise<{ accessToken: string }> {
+  async login(
+    loginDto: LoginDto,
+    context?: { ip?: string; userAgent?: string },
+  ): Promise<{ accessToken: string }> {
     const activeUser = await this.validateUserByEmail(loginDto.email, loginDto.password);
 
     const payload: JwtPayload = {

@@ -7,4 +7,3 @@ export class UploadJobsQueryDto extends PaginationQueryDto {
   @IsEnum(UploadStatus)
   status?: UploadStatus;
 }
-

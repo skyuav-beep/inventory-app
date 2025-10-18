@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Resource } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -41,7 +52,10 @@ export class OutboundsController {
     @ActiveUser() activeUser: ActiveUserData,
     @Req() request: Request,
   ) {
-    return this.outboundsService.create(createOutboundDto, this.buildAuditContext(activeUser, request));
+    return this.outboundsService.create(
+      createOutboundDto,
+      this.buildAuditContext(activeUser, request),
+    );
   }
 
   @Get(':id')
@@ -58,12 +72,20 @@ export class OutboundsController {
     @ActiveUser() activeUser: ActiveUserData,
     @Req() request: Request,
   ) {
-    return this.outboundsService.update(id, updateOutboundDto, this.buildAuditContext(activeUser, request));
+    return this.outboundsService.update(
+      id,
+      updateOutboundDto,
+      this.buildAuditContext(activeUser, request),
+    );
   }
 
   @Delete(':id')
   @RequirePermission(Resource.outbounds, 'write')
-  async remove(@Param('id') id: string, @ActiveUser() activeUser: ActiveUserData, @Req() request: Request) {
+  async remove(
+    @Param('id') id: string,
+    @ActiveUser() activeUser: ActiveUserData,
+    @Req() request: Request,
+  ) {
     await this.outboundsService.remove(id, this.buildAuditContext(activeUser, request));
     return { success: true };
   }
