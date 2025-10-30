@@ -158,17 +158,17 @@ model Outbound {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
   quantity  Int
-  dateOut   DateTime
+  dateOut   DateTime       @default(now())
   status    OutboundStatus @default(shipped)
-  note      String?
-  orderDate DateTime?
-  ordererId String?
+  memo      String?
+  specialNote String?
+  freightType String?
+  paymentCondition String?
   ordererName String?
   recipientName String?
   recipientPhone String?
   recipientAddress String?
   recipientPostalCode String?
-  customsNumber String?
   invoiceNumber String?
 
   createdAt DateTime @default(now())
@@ -220,7 +220,7 @@ model Alert {
 
 model NotificationSetting {
   id                   String   @id @default(cuid())
-  telegramEnabled      Boolean  @default(true)
+  telegramEnabled      Boolean  @default(false)
   telegramCooldownMin  Int      @default(60)
   telegramQuietHours   String   @default("22-07")
   telegramBotToken     String?

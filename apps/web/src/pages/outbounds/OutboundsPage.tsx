@@ -1,4 +1,5 @@
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOutbounds } from '../../app/hooks/useOutbounds';
 import { useAuth } from '../../hooks/useAuth';
 import { ProductListItem, fetchProducts } from '../../services/productService';
@@ -9,9 +10,11 @@ import {
   deleteOutbound,
   updateOutbound,
 } from '../../services/outboundService';
+import { uploadStockFile, UploadJob } from '../../services/uploadService';
 import { createReturn } from '../../services/returnService';
 import { Modal } from '../../components/ui/Modal';
 import { downloadCsvTemplate } from '../../lib/downloadTemplate';
+import { downloadExcel } from '../../lib/downloadExcel';
 import styles from './OutboundsPage.module.css';
 
 const logError = (err: unknown) => {
@@ -31,10 +34,39 @@ const formatDateTimeLocal = (date: Date): string => {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+const formatDateTimeCell = (value?: string): string => {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleString();
+};
+
 const sanitizeText = (value: string): string | undefined => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
 };
+
+function getReturnableQuantity(outbound?: OutboundListItem | null): number {
+  if (!outbound) {
+    return 0;
+  }
+
+  if (Number.isFinite(outbound.returnableQuantity)) {
+    return Math.max(0, outbound.returnableQuantity);
+  }
+
+  if (Number.isFinite(outbound.returnedQuantity)) {
+    return Math.max(0, outbound.quantity - outbound.returnedQuantity);
+  }
+
+  return Math.max(0, outbound.quantity);
+}
 
 type ModalMode = 'create' | 'edit';
 
@@ -66,54 +98,46 @@ const statusFilterOptions: Array<{ value: 'all' | OutboundStatus; label: string 
 interface OutboundFormState {
   productId: string;
   quantity: string;
-  orderDate: string;
-  dateOut: string;
   status: OutboundStatus;
-  ordererId: string;
   ordererName: string;
   recipientName: string;
   recipientPhone: string;
   recipientAddress: string;
   recipientPostalCode: string;
-  customsNumber: string;
-  invoiceNumber: string;
-  note: string;
+  freightType: string;
+  paymentCondition: string;
+  specialNote: string;
+  memo: string;
 }
 
 const createDefaultOutboundForm = (): OutboundFormState => ({
   productId: '',
   quantity: '',
-  orderDate: formatDateTimeLocal(new Date()),
-  dateOut: formatDateTimeLocal(new Date()),
   status: 'shipped',
-  ordererId: '',
   ordererName: '',
   recipientName: '',
   recipientPhone: '',
   recipientAddress: '',
   recipientPostalCode: '',
-  customsNumber: '',
-  invoiceNumber: '',
-  note: '',
+  freightType: '',
+  paymentCondition: '',
+  specialNote: '',
+  memo: '',
 });
 
 const buildFormStateFromOutbound = (outbound: OutboundListItem): OutboundFormState => ({
   productId: outbound.productId,
   quantity: String(outbound.quantity),
-  orderDate: outbound.orderDate ? formatDateTimeLocal(new Date(outbound.orderDate)) : '',
-  dateOut: outbound.dateOut
-    ? formatDateTimeLocal(new Date(outbound.dateOut))
-    : formatDateTimeLocal(new Date()),
   status: outbound.status,
-  ordererId: outbound.ordererId ?? '',
   ordererName: outbound.ordererName ?? '',
   recipientName: outbound.recipientName ?? '',
   recipientPhone: outbound.recipientPhone ?? '',
   recipientAddress: outbound.recipientAddress ?? '',
   recipientPostalCode: outbound.recipientPostalCode ?? '',
-  customsNumber: outbound.customsNumber ?? '',
-  invoiceNumber: outbound.invoiceNumber ?? '',
-  note: outbound.note ?? '',
+  freightType: outbound.freightType ?? '',
+  paymentCondition: outbound.paymentCondition ?? '',
+  specialNote: outbound.specialNote ?? '',
+  memo: outbound.memo ?? '',
 });
 
 interface ReturnFormState {
@@ -123,13 +147,14 @@ interface ReturnFormState {
 }
 
 const createDefaultReturnForm = (outbound?: OutboundListItem): ReturnFormState => ({
-  quantity: outbound ? String(outbound.quantity) : '',
+  quantity: outbound ? String(getReturnableQuantity(outbound)) : '',
   reason: '',
   dateReturn: formatDateTimeLocal(new Date()),
 });
 
 export function OutboundsPage() {
   const { hasPermission } = useAuth();
+  const navigate = useNavigate();
   const canRegisterOutbound = hasPermission('outbounds', { write: true });
   const {
     items,
@@ -164,6 +189,27 @@ export function OutboundsPage() {
   const [returningOutbound, setReturningOutbound] = useState<OutboundListItem | null>(null);
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
+  const [isBulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkJob, setBulkJob] = useState<UploadJob | null>(null);
+  const bulkFileInputRef = useRef<HTMLInputElement | null>(null);
+  const remainingReturnableQuantity = getReturnableQuantity(returningOutbound);
+  const requestedReturnQuantityRaw = Number(returnForm.quantity);
+  const requestedReturnQuantity =
+    Number.isFinite(requestedReturnQuantityRaw) && requestedReturnQuantityRaw > 0
+      ? requestedReturnQuantityRaw
+      : 0;
+  const projectedReturnableAfterSubmit = Math.max(
+    0,
+    remainingReturnableQuantity - requestedReturnQuantity,
+  );
+  const completedReturnQuantity = returningOutbound
+    ? Number.isFinite(returningOutbound.returnedQuantity)
+      ? Math.max(0, returningOutbound.returnedQuantity)
+      : Math.max(0, returningOutbound.quantity - remainingReturnableQuantity)
+    : 0;
 
   useEffect(() => {
     setSearchInput(filters.search);
@@ -297,18 +343,16 @@ export function OutboundsPage() {
     const payload = {
       productId: formState.productId,
       quantity: quantityValue,
-      orderDate: formState.orderDate ? new Date(formState.orderDate).toISOString() : undefined,
-      dateOut: formState.dateOut ? new Date(formState.dateOut).toISOString() : undefined,
       status: formState.status,
-      note: sanitizeText(formState.note),
-      ordererId: sanitizeText(formState.ordererId),
+      memo: sanitizeText(formState.memo),
+      specialNote: sanitizeText(formState.specialNote),
+      freightType: sanitizeText(formState.freightType),
+      paymentCondition: sanitizeText(formState.paymentCondition),
       ordererName: sanitizeText(formState.ordererName),
       recipientName: sanitizeText(formState.recipientName),
       recipientPhone: sanitizeText(formState.recipientPhone),
       recipientAddress: sanitizeText(formState.recipientAddress),
       recipientPostalCode: sanitizeText(formState.recipientPostalCode),
-      customsNumber: sanitizeText(formState.customsNumber),
-      invoiceNumber: sanitizeText(formState.invoiceNumber),
     };
 
     try {
@@ -367,25 +411,25 @@ export function OutboundsPage() {
   };
 
   const handleTemplateDownload = () => {
-    const now = formatDateTimeLocal(new Date());
+    const today = new Date().toISOString().slice(0, 10);
     downloadCsvTemplate(
       'outbounds-template.csv',
       [
-        'product_code',
-        'product_name',
-        'unit',
-        'quantity',
-        'order_date',
-        'ship_date',
-        'orderer_id',
-        'orderer_name',
-        'recipient_name',
-        'recipient_phone',
-        'recipient_address',
-        'recipient_postal_code',
-        'customs_number',
-        'invoice_number',
-        'note',
+        '제품코드',
+        '제품명',
+        '단위',
+        '출고수량',
+        '출고일',
+        '출고상태',
+        '주문자',
+        '수령자',
+        '연락처',
+        '주소',
+        '우편번호',
+        '운임구분',
+        '지불조건',
+        '특기사항',
+        '메모',
       ],
       [
         [
@@ -393,23 +437,143 @@ export function OutboundsPage() {
           '샘플 제품',
           'EA',
           '5',
-          now,
-          now,
-          'buyer01',
+          today,
+          'shipped',
           '홍길동',
           '김수령',
           '010-1234-5678',
           '서울특별시 중구 세종대로 110',
           '04524',
-          'P1234567890',
-          'INV-20240501-0001',
-          '출고 메모',
+          '선불',
+          '후불',
+          '파손 주의',
+          '수령자 부재 시 문앞 보관',
         ],
       ],
     );
   };
 
+  const handleExcelDownload = () => {
+    const headers = [
+      '출고일시',
+      '주문자 성명',
+      '제품코드',
+      '제품명',
+      '단위',
+      '출고 수량',
+      '반품 수량',
+      '잔여 수량',
+      '운임 타입',
+      '지불조건',
+      '특기사항',
+      '메모',
+      '수령자',
+      '전화번호',
+      '주소',
+      '우편번호',
+      '상태',
+      '등록 시각',
+    ];
+
+    const rows = items.map((outbound) => {
+      const remainingQuantity = getReturnableQuantity(outbound);
+      const returnedQuantity = Number.isFinite(outbound.returnedQuantity)
+        ? Math.max(0, outbound.returnedQuantity)
+        : Math.max(0, outbound.quantity - remainingQuantity);
+
+      return [
+        formatDateTimeCell(outbound.dateOut ?? outbound.createdAt),
+        outbound.ordererName ?? '',
+        outbound.productCode,
+        outbound.productName,
+        outbound.productUnit,
+        outbound.quantity,
+        returnedQuantity,
+        remainingQuantity,
+        outbound.freightType ?? '',
+        outbound.paymentCondition ?? '',
+        outbound.specialNote ?? '',
+        outbound.memo ?? '',
+        outbound.recipientName ?? '',
+        outbound.recipientPhone ?? '',
+        outbound.recipientAddress ?? '',
+        outbound.recipientPostalCode ?? '',
+        statusLabelMap[outbound.status] ?? outbound.status,
+        formatDateTimeCell(outbound.createdAt),
+      ];
+    });
+
+    const today = new Date().toISOString().split('T')[0];
+    downloadExcel(`outbounds_${today}.xlsx`, headers, rows);
+  };
+
+  const openBulkModal = () => {
+    setBulkModalOpen(true);
+    setBulkFile(null);
+    setBulkError(null);
+    setBulkJob(null);
+  };
+
+  const closeBulkModal = () => {
+    if (bulkUploading) {
+      return;
+    }
+    setBulkModalOpen(false);
+    setBulkFile(null);
+    setBulkError(null);
+    setBulkJob(null);
+    if (bulkFileInputRef.current) {
+      bulkFileInputRef.current.value = '';
+    }
+  };
+
+  const handleBulkFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    setBulkFile(nextFile);
+    setBulkError(null);
+    setBulkJob(null);
+  };
+
+  const handleBulkUpload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!bulkFile) {
+      setBulkError('업로드할 템플릿 파일을 선택하세요.');
+      return;
+    }
+
+    try {
+      setBulkUploading(true);
+      setBulkError(null);
+      const response = await uploadStockFile('outbound', bulkFile);
+      setBulkJob(response.job);
+      setBulkFile(null);
+      if (bulkFileInputRef.current) {
+        bulkFileInputRef.current.value = '';
+      }
+    } catch (err) {
+      logError(err);
+      setBulkJob(null);
+      setBulkError(err instanceof Error ? err.message : '대량 출고 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
+  const goToBulkUploadsPage = () => {
+    if (bulkUploading) {
+      return;
+    }
+    closeBulkModal();
+    navigate('/uploads?type=outbound');
+  };
+
   const openReturnModal = (outbound: OutboundListItem) => {
+    const available = getReturnableQuantity(outbound);
+    if (available <= 0) {
+      setActionError('이미 모든 수량이 반품 처리되었습니다.');
+      return;
+    }
+
     setReturningOutbound(outbound);
     setReturnForm(createDefaultReturnForm(outbound));
     setReturnError(null);
@@ -442,16 +606,25 @@ export function OutboundsPage() {
       return;
     }
 
+    const available = getReturnableQuantity(returningOutbound);
+    if (available <= 0) {
+      setReturnError('더 이상 반품 가능한 수량이 없습니다.');
+      return;
+    }
+
     const quantityValue = Number(returnForm.quantity);
     if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
       setReturnError('반품 수량은 1 이상의 정수여야 합니다.');
       return;
     }
 
-    if (quantityValue > returningOutbound.quantity) {
-      setReturnError('반품 수량은 출고 수량을 초과할 수 없습니다.');
+    if (quantityValue > available) {
+      setReturnError('반품 수량은 남은 반품 가능 수량을 초과할 수 없습니다.');
       return;
     }
+
+    const nextRemainingQuantity = available - quantityValue;
+    const shouldMarkReturned = nextRemainingQuantity <= 0;
 
     const reason = returnForm.reason.trim();
     if (!reason) {
@@ -468,12 +641,15 @@ export function OutboundsPage() {
         quantity: quantityValue,
         reason,
         status: 'completed',
+        outboundId: returningOutbound.id,
         dateReturn: returnForm.dateReturn
           ? new Date(returnForm.dateReturn).toISOString()
           : undefined,
       });
 
-      await updateOutbound(returningOutbound.id, { status: 'returned' });
+      if (shouldMarkReturned && returningOutbound.status !== 'returned') {
+        await updateOutbound(returningOutbound.id, { status: 'returned' });
+      }
 
       setActionError(null);
       setReturnModalOpen(false);
@@ -523,8 +699,16 @@ export function OutboundsPage() {
           <p>출고 기록과 재고 차감을 확인하고 모니터링하세요.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} onClick={handleTemplateDownload}>
-            출고 템플릿
+          <button type="button" className={styles.secondaryButton} onClick={handleExcelDownload}>
+            엑셀 다운로드
+          </button>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            disabled={!canRegisterOutbound}
+            onClick={openBulkModal}
+          >
+            대량 출고 등록
           </button>
           <button
             type="button"
@@ -544,6 +728,11 @@ export function OutboundsPage() {
           <p className={styles.summarySubtitle}>현재 페이지 기준</p>
         </article>
         <article className={styles.summaryCard}>
+          <p className={styles.summaryTitle}>총 반품 수량</p>
+          <p className={styles.summaryValue}>{summary.totalReturnedQuantity.toLocaleString()} EA</p>
+          <p className={styles.summarySubtitle}>완료된 반품 누적</p>
+        </article>
+        <article className={styles.summaryCard}>
           <p className={styles.summaryTitle}>출고 제품 수</p>
           <p className={styles.summaryValue}>{summary.uniqueProducts.toLocaleString()} 개</p>
           <p className={styles.summarySubtitle}>중복 제외</p>
@@ -553,11 +742,6 @@ export function OutboundsPage() {
           <p className={styles.summaryValue}>{pagination.total.toLocaleString()} 건</p>
           <p className={styles.summarySubtitle}>서버 전체 데이터</p>
         </article>
-        <article className={styles.summaryCard}>
-          <p className={styles.summaryTitle}>페이지 당 표기</p>
-          <p className={styles.summaryValue}>{pagination.size} 건</p>
-          <p className={styles.summarySubtitle}>기본 목록 크기</p>
-        </article>
       </section>
 
       <div className={styles.toolbar}>
@@ -565,7 +749,7 @@ export function OutboundsPage() {
           <input
             type="search"
             className={styles.searchInput}
-            placeholder="제품·주문자·송장번호로 검색"
+            placeholder="제품·수령자·운임으로 검색"
             value={searchInput}
             onChange={handleSearchChange}
           />
@@ -596,22 +780,23 @@ export function OutboundsPage() {
         <table>
           <thead>
             <tr>
-              <th>주문일시</th>
               <th>출고일시</th>
-              <th>주문자 아이디</th>
               <th>주문자 성명</th>
               <th>제품코드</th>
               <th>제품명</th>
               <th>단위</th>
               <th>수량</th>
+              <th>반품 수량</th>
+              <th>잔여 수량</th>
+              <th>운임 타입</th>
+              <th>지불조건</th>
+              <th>특기사항</th>
+              <th>메모</th>
               <th>수령자</th>
               <th>전화번호</th>
               <th>주소</th>
               <th>우편번호</th>
-              <th>통관번호</th>
-              <th>송장번호</th>
               <th>상태</th>
-              <th>비고</th>
               <th>등록 시각</th>
               <th>작업</th>
             </tr>
@@ -619,80 +804,86 @@ export function OutboundsPage() {
           <tbody>
             {loading ? (
               <tr className={styles.loadingRow}>
-                <td colSpan={18}>출고 내역을 불러오는 중입니다...</td>
+                <td colSpan={19}>출고 내역을 불러오는 중입니다...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr className={styles.emptyRow}>
-                <td colSpan={18}>조건에 맞는 출고 기록이 없습니다.</td>
+                <td colSpan={19}>조건에 맞는 출고 기록이 없습니다.</td>
               </tr>
             ) : (
-              items.map((outbound) => (
-                <tr key={outbound.id}>
-                  <td>
-                    {outbound.orderDate ? new Date(outbound.orderDate).toLocaleString() : '-'}
-                  </td>
-                  <td>{new Date(outbound.dateOut).toLocaleString()}</td>
-                  <td>{outbound.ordererId ?? '-'}</td>
-                  <td>{outbound.ordererName ?? '-'}</td>
-                  <td>{outbound.productCode}</td>
-                  <td>{outbound.productName}</td>
-                  <td>{outbound.productUnit}</td>
-                  <td>{outbound.quantity.toLocaleString()}</td>
-                  <td>{outbound.recipientName ?? '-'}</td>
-                  <td>{outbound.recipientPhone ?? '-'}</td>
-                  <td className={styles.wrapCell}>{outbound.recipientAddress ?? '-'}</td>
-                  <td>{outbound.recipientPostalCode ?? '-'}</td>
-                  <td>{outbound.customsNumber ?? '-'}</td>
-                  <td>{outbound.invoiceNumber ?? '-'}</td>
-                  <td>
-                    <span
-                      className={`${styles.statusBadge} ${getStatusBadgeClass(outbound.status)}`}
-                    >
-                      {statusLabelMap[outbound.status] ?? outbound.status}
-                    </span>
-                  </td>
-                  <td>{outbound.note ?? '-'}</td>
-                  <td>{new Date(outbound.createdAt).toLocaleString()}</td>
-                  <td className={styles.actionCell}>
-                    {canRegisterOutbound ? (
-                      <>
-                        <button
-                          type="button"
-                          className={styles.actionButton}
-                          onClick={() => openEditModal(outbound)}
-                          disabled={deletingId === outbound.id}
-                        >
-                          수정
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.actionButton} ${styles.actionButtonWarning}`}
-                          onClick={() => openReturnModal(outbound)}
-                          disabled={
-                            deletingId === outbound.id ||
-                            outbound.status === 'returned' ||
-                            (returnSubmitting && returningOutbound?.id === outbound.id)
-                          }
-                        >
-                          {returnSubmitting && returningOutbound?.id === outbound.id
-                            ? '반품 중...'
-                            : '반품'}
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.actionButton} ${styles.actionButtonDanger}`}
-                          onClick={() => handleDelete(outbound)}
-                          disabled={deletingId === outbound.id}
-                        >
-                          {deletingId === outbound.id ? '삭제 중...' : '삭제'}
-                        </button>
-                      </>
-                    ) : (
-                      <span className={styles.actionPlaceholder}>-</span>
-                    )}
-                  </td>
-                </tr>
-              ))
+              items.map((outbound) => {
+                const remainingQuantity = getReturnableQuantity(outbound);
+                const returnedQuantity = Number.isFinite(outbound.returnedQuantity)
+                  ? Math.max(0, outbound.returnedQuantity)
+                  : Math.max(0, outbound.quantity - remainingQuantity);
+
+                return (
+                  <tr key={outbound.id}>
+                    <td>{formatDateTimeCell(outbound.dateOut ?? outbound.createdAt)}</td>
+                    <td>{outbound.ordererName ?? '-'}</td>
+                    <td>{outbound.productCode}</td>
+                    <td>{outbound.productName}</td>
+                    <td>{outbound.productUnit}</td>
+                    <td>{outbound.quantity.toLocaleString()}</td>
+                    <td>{returnedQuantity.toLocaleString()}</td>
+                    <td>{remainingQuantity.toLocaleString()}</td>
+                    <td>{outbound.freightType ?? '-'}</td>
+                    <td>{outbound.paymentCondition ?? '-'}</td>
+                    <td className={styles.wrapCell}>{outbound.specialNote ?? '-'}</td>
+                    <td className={styles.wrapCell}>{outbound.memo ?? '-'}</td>
+                    <td>{outbound.recipientName ?? '-'}</td>
+                    <td>{outbound.recipientPhone ?? '-'}</td>
+                    <td className={styles.wrapCell}>{outbound.recipientAddress ?? '-'}</td>
+                    <td>{outbound.recipientPostalCode ?? '-'}</td>
+                    <td>
+                      <span
+                        className={`${styles.statusBadge} ${getStatusBadgeClass(outbound.status)}`}
+                      >
+                        {statusLabelMap[outbound.status] ?? outbound.status}
+                      </span>
+                    </td>
+                    <td>{formatDateTimeCell(outbound.createdAt)}</td>
+                    <td className={styles.actionCell}>
+                      {canRegisterOutbound ? (
+                        <>
+                          <button
+                            type="button"
+                            className={styles.actionButton}
+                            onClick={() => openEditModal(outbound)}
+                            disabled={deletingId === outbound.id}
+                          >
+                            수정
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.actionButton} ${styles.actionButtonWarning}`}
+                            onClick={() => openReturnModal(outbound)}
+                            disabled={
+                              deletingId === outbound.id ||
+                              remainingQuantity <= 0 ||
+                              (returnSubmitting && returningOutbound?.id === outbound.id)
+                            }
+                          >
+                            {returnSubmitting && returningOutbound?.id === outbound.id
+                              ? '반품 중...'
+                              : '반품 접수'}
+                          </button>
+                          <button
+                            type="button"
+                            className={`${styles.actionButton} ${styles.actionButtonDanger}`}
+                            onClick={() => handleDelete(outbound)}
+                            disabled={deletingId === outbound.id}
+                          >
+                            {deletingId === outbound.id ? '삭제 중...' : '삭제'}
+                          </button>
+                        </>
+                      ) : (
+                        <span className={styles.actionPlaceholder}>-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -709,6 +900,65 @@ export function OutboundsPage() {
           다음
         </button>
       </div>
+
+      <Modal open={isBulkModalOpen} onClose={closeBulkModal} title="대량 출고 등록" size="lg">
+        <form className={styles.bulkForm} onSubmit={handleBulkUpload}>
+          <p className={styles.bulkDescription}>
+            출고 템플릿(.xlsx, .xls, .csv) 파일을 업로드하면 백그라운드 작업으로 자동 처리됩니다.
+          </p>
+          <div className={styles.bulkTemplateRow}>
+            <span>템플릿이 필요하신가요?</span>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={handleTemplateDownload}
+            >
+              출고 템플릿 다운로드
+            </button>
+          </div>
+          <label htmlFor="bulk-outbound-file" className={styles.bulkFileInput}>
+            <span>템플릿 파일 업로드</span>
+            <input
+              id="bulk-outbound-file"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              ref={bulkFileInputRef}
+              onChange={handleBulkFileChange}
+              disabled={bulkUploading}
+            />
+          </label>
+          {bulkFile && <p className={styles.bulkSelectedFile}>선택된 파일: {bulkFile.name}</p>}
+          {bulkError && <p className={styles.errorText}>{bulkError}</p>}
+          {bulkJob && (
+            <div className={styles.bulkResult}>
+              <p>
+                업로드 작업이 생성되었습니다. 작업 ID: <code>{bulkJob.id}</code>
+              </p>
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={goToBulkUploadsPage}
+                disabled={bulkUploading}
+              >
+                업로드 내역에서 상태 확인
+              </button>
+            </div>
+          )}
+          <div className={styles.bulkModalActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={closeBulkModal}
+              disabled={bulkUploading}
+            >
+              닫기
+            </button>
+            <button type="submit" className={styles.primaryButton} disabled={bulkUploading}>
+              {bulkUploading ? '업로드 중...' : '업로드'}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={isModalOpen}
@@ -784,28 +1034,6 @@ export function OutboundsPage() {
             />
           </div>
           <div className={styles.formField}>
-            <label htmlFor="outbound-order-date">주문일시</label>
-            <input
-              id="outbound-order-date"
-              name="orderDate"
-              type="datetime-local"
-              value={formState.orderDate}
-              onChange={handleFormChange}
-              className={styles.formInput}
-            />
-          </div>
-          <div className={styles.formField}>
-            <label htmlFor="outbound-date">출고일시</label>
-            <input
-              id="outbound-date"
-              name="dateOut"
-              type="datetime-local"
-              value={formState.dateOut}
-              onChange={handleFormChange}
-              className={styles.formInput}
-            />
-          </div>
-          <div className={styles.formField}>
             <label htmlFor="outbound-status">상태</label>
             <select
               id="outbound-status"
@@ -822,15 +1050,27 @@ export function OutboundsPage() {
             </select>
           </div>
           <div className={styles.formField}>
-            <label htmlFor="outbound-orderer-id">주문자 아이디</label>
+            <label htmlFor="outbound-freight-type">운임 타입</label>
             <input
-              id="outbound-orderer-id"
-              name="ordererId"
+              id="outbound-freight-type"
+              name="freightType"
               type="text"
-              value={formState.ordererId}
+              value={formState.freightType}
               onChange={handleFormChange}
               className={styles.formInput}
-              placeholder="예: user01"
+              placeholder="예: 선불/착불"
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="outbound-payment-condition">지불조건</label>
+            <input
+              id="outbound-payment-condition"
+              name="paymentCondition"
+              type="text"
+              value={formState.paymentCondition}
+              onChange={handleFormChange}
+              className={styles.formInput}
+              placeholder="예: 카드/현금/후불"
             />
           </div>
           <div className={styles.formField}>
@@ -894,38 +1134,27 @@ export function OutboundsPage() {
             />
           </div>
           <div className={styles.formField}>
-            <label htmlFor="outbound-customs-number">통관번호</label>
-            <input
-              id="outbound-customs-number"
-              name="customsNumber"
-              type="text"
-              value={formState.customsNumber}
-              onChange={handleFormChange}
-              className={styles.formInput}
-              placeholder="P로 시작하는 개인통관고유부호"
-            />
-          </div>
-          <div className={styles.formField}>
-            <label htmlFor="outbound-invoice-number">송장번호</label>
-            <input
-              id="outbound-invoice-number"
-              name="invoiceNumber"
-              type="text"
-              value={formState.invoiceNumber}
-              onChange={handleFormChange}
-              className={styles.formInput}
-              placeholder="택배 송장번호"
-            />
-          </div>
-          <div className={styles.formField}>
-            <label htmlFor="outbound-note">비고</label>
+            <label htmlFor="outbound-special-note">특기사항</label>
             <textarea
-              id="outbound-note"
-              name="note"
-              value={formState.note}
+              id="outbound-special-note"
+              name="specialNote"
+              rows={3}
+              value={formState.specialNote}
               onChange={handleFormChange}
               className={styles.formTextarea}
-              placeholder="비고를 입력하세요 (선택)"
+              placeholder="특이사항을 입력하세요 (선택)"
+            />
+          </div>
+          <div className={styles.formField}>
+            <label htmlFor="outbound-memo">메모</label>
+            <textarea
+              id="outbound-memo"
+              name="memo"
+              rows={3}
+              value={formState.memo}
+              onChange={handleFormChange}
+              className={styles.formTextarea}
+              placeholder="내부 메모를 입력하세요 (선택)"
             />
           </div>
           {formError && <p className={styles.errorText}>{formError}</p>}
@@ -971,7 +1200,7 @@ export function OutboundsPage() {
               name="quantity"
               type="number"
               min={1}
-              max={returningOutbound?.quantity ?? undefined}
+              max={remainingReturnableQuantity > 0 ? remainingReturnableQuantity : undefined}
               value={returnForm.quantity}
               onChange={handleReturnFormChange}
               className={styles.formInput}
@@ -980,7 +1209,14 @@ export function OutboundsPage() {
             />
             {returningOutbound && (
               <p className={styles.helperText}>
-                최대 {returningOutbound.quantity.toLocaleString()} EA
+                남은 반품 가능 수량: {remainingReturnableQuantity.toLocaleString()} EA ( 출고{' '}
+                {returningOutbound.quantity.toLocaleString()} EA - 완료 반품{' '}
+                {completedReturnQuantity.toLocaleString()} EA)
+                {requestedReturnQuantity > 0 && (
+                  <>
+                    {' · '}반품 후 예상 잔여: {projectedReturnableAfterSubmit.toLocaleString()} EA
+                  </>
+                )}
               </p>
             )}
           </div>

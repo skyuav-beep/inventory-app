@@ -12,7 +12,6 @@ export interface ReturnListItem {
   status: ReturnStatus;
   dateReturn: string;
   dateOut?: string | null;
-  ordererId?: string | null;
   ordererName?: string | null;
   outboundId?: string | null;
   createdAt: string;

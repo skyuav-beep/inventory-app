@@ -11,6 +11,7 @@ import { ProductListItem, fetchProducts } from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
 import { Modal } from '../../components/ui/Modal';
 import styles from './ReturnsPage.module.css';
+import { downloadExcel } from '../../lib/downloadExcel';
 
 const logError = (err: unknown) => {
   if (err instanceof Error) {
@@ -59,6 +60,17 @@ const formatDateOnly = (value: string): string => {
   return date.toISOString().slice(0, 10);
 };
 
+const formatDateTimeCell = (value?: string): string => {
+  if (!value) {
+    return '-';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return date.toLocaleString();
+};
+
 const buildFormStateFromRecord = (record: ReturnListItem): ReturnFormState => ({
   productId: record.productId,
   quantity: String(record.quantity),
@@ -99,7 +111,7 @@ export function ReturnsPage() {
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const baseColumnCount = 9;
+  const baseColumnCount = 8;
   const tableColumnCount = canRegisterReturn ? baseColumnCount + 1 : baseColumnCount;
 
   useEffect(() => {
@@ -320,6 +332,37 @@ export function ReturnsPage() {
 
   const modalTitle = modalMode === 'create' ? '반품 등록' : '반품 수정';
 
+  const handleExcelDownload = () => {
+    const headers = [
+      '출고일시',
+      '반품일',
+      '제품코드',
+      '제품명',
+      '반품 수량',
+      '상태',
+      '사유',
+      '주문자 성명',
+      '출고 ID',
+      '등록 시각',
+    ];
+
+    const rows = items.map((record) => [
+      formatDateTimeCell(record.dateOut ?? record.createdAt),
+      formatDateTimeCell(record.dateReturn),
+      record.productCode,
+      record.productName,
+      record.quantity,
+      statusLabels[record.status],
+      record.reason,
+      record.ordererName ?? '',
+      record.outboundId ?? '',
+      formatDateTimeCell(record.createdAt),
+    ]);
+
+    const today = new Date().toISOString().split('T')[0];
+    downloadExcel(`returns_${today}.xlsx`, headers, rows);
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.headerRow}>
@@ -328,6 +371,9 @@ export function ReturnsPage() {
           <p>반품 요청 상태를 확인하고 추가 검토 작업을 진행하세요.</p>
         </div>
         <div className={styles.actions}>
+          <button type="button" className={styles.secondaryButton} onClick={handleExcelDownload}>
+            엑셀 다운로드
+          </button>
           <button
             type="button"
             className={styles.primaryButton}
@@ -394,10 +440,9 @@ export function ReturnsPage() {
         <table>
           <thead>
             <tr>
-              <th>출고일</th>
+              <th>출고일시</th>
               <th>반품일</th>
               <th>제품</th>
-              <th>주문자 아이디</th>
               <th>주문자 성명</th>
               <th>수량</th>
               <th>상태</th>
@@ -418,15 +463,14 @@ export function ReturnsPage() {
             ) : (
               items.map((record) => (
                 <tr key={record.id}>
-                  <td>{record.dateOut ? new Date(record.dateOut).toLocaleString() : '-'}</td>
-                  <td>{new Date(record.dateReturn).toLocaleString()}</td>
+                  <td>{formatDateTimeCell(record.dateOut ?? record.createdAt)}</td>
+                  <td>{formatDateTimeCell(record.dateReturn)}</td>
                   <td>
                     <div className={styles.productNameCell}>
                       <span className={styles.productName}>{record.productName}</span>
                       <span className={styles.productCode}>{record.productCode}</span>
                     </div>
                   </td>
-                  <td>{record.ordererId ?? '-'}</td>
                   <td>{record.ordererName ?? '-'}</td>
                   <td>{record.quantity.toLocaleString()}</td>
                   <td>
@@ -439,7 +483,7 @@ export function ReturnsPage() {
                     </span>
                   </td>
                   <td>{record.reason}</td>
-                  <td>{new Date(record.createdAt).toLocaleString()}</td>
+                  <td>{formatDateTimeCell(record.createdAt)}</td>
                   {canRegisterReturn && (
                     <td className={styles.actionCell}>
                       <button

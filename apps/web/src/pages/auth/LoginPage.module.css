@@ -19,8 +19,21 @@
   color: #1e293b;
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0;
+  justify-content: center;
+}
+
+.brand img {
+  width: 104px;
+  height: 50px;
+  object-fit: contain;
+}
+
 .form h1 {
-  margin: 0;
+  margin: -10px 0 0;
   font-size: 26px;
   color: #1e293b;
 }
@@ -54,6 +67,60 @@
   font-size: 14px;
 }
 
+.passwordInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordInput {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.togglePasswordButton {
+  position: absolute;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.togglePasswordButton:hover,
+.togglePasswordButton:focus-visible {
+  color: #1e293b;
+  background: rgba(148, 163, 184, 0.16);
+  outline: none;
+}
+
+.togglePasswordButton:active {
+  transform: translateY(1px);
+}
+
+.eyeIcon {
+  width: 20px;
+  height: 20px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
 .primaryButton {
   padding: 12px;
   border-radius: 8px;
@@ -74,6 +141,20 @@
 .primaryButton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.rememberRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.rememberRow input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
 }
 
 .helperText {

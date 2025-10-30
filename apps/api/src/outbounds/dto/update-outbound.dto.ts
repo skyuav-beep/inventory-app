@@ -1,7 +1,23 @@
-import { $Enums } from '@prisma/client';
+import type { $Enums } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsDate, IsInt, IsOptional, IsPositive, IsString, MaxLength } from 'class-validator';
-import { IsEnum } from 'class-validator';
+import {
+  IsDate,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+
+const OUTBOUND_STATUS = {
+  shipped: 'shipped',
+  in_transit: 'in_transit',
+  delivered: 'delivered',
+  returned: 'returned',
+} as const satisfies Record<string, $Enums.OutboundStatus>;
+
+type OutboundStatus = (typeof OUTBOUND_STATUS)[keyof typeof OUTBOUND_STATUS];
 
 export class UpdateOutboundDto {
   @IsOptional()
@@ -16,22 +32,27 @@ export class UpdateOutboundDto {
   @IsOptional()
   @Type(() => Date)
   @IsDate()
-  orderDate?: Date;
-
-  @IsOptional()
-  @Type(() => Date)
-  @IsDate()
   dateOut?: Date;
 
   @IsOptional()
   @IsString()
   @MaxLength(255)
-  note?: string;
+  memo?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(100)
-  ordererId?: string;
+  @MaxLength(255)
+  specialNote?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  freightType?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  paymentCondition?: string;
 
   @IsOptional()
   @IsString()
@@ -60,15 +81,10 @@ export class UpdateOutboundDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(50)
-  customsNumber?: string;
-
-  @IsOptional()
-  @IsString()
   @MaxLength(100)
   invoiceNumber?: string;
 
   @IsOptional()
-  @IsEnum($Enums.OutboundStatus)
-  status?: $Enums.OutboundStatus;
+  @IsEnum(OUTBOUND_STATUS)
+  status?: OutboundStatus;
 }

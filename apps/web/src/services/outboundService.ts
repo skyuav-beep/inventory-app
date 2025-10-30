@@ -11,16 +11,18 @@ export interface OutboundListItem {
   quantity: number;
   dateOut: string;
   status: OutboundStatus;
-  orderDate?: string;
-  ordererId?: string;
   ordererName?: string;
   recipientName?: string;
   recipientPhone?: string;
   recipientAddress?: string;
   recipientPostalCode?: string;
-  customsNumber?: string;
   invoiceNumber?: string;
-  note?: string;
+  freightType?: string;
+  paymentCondition?: string;
+  specialNote?: string;
+  memo?: string;
+  returnedQuantity: number;
+  returnableQuantity: number;
   createdAt: string;
 }
 
@@ -44,15 +46,15 @@ export interface CreateOutboundPayload {
   productId: string;
   quantity: number;
   dateOut?: string;
-  note?: string;
-  orderDate?: string;
-  ordererId?: string;
+  memo?: string;
+  specialNote?: string;
+  freightType?: string;
+  paymentCondition?: string;
   ordererName?: string;
   recipientName?: string;
   recipientPhone?: string;
   recipientAddress?: string;
   recipientPostalCode?: string;
-  customsNumber?: string;
   invoiceNumber?: string;
   status?: OutboundStatus;
 }
@@ -93,15 +95,15 @@ export interface UpdateOutboundPayload {
   productId?: string;
   quantity?: number;
   dateOut?: string;
-  note?: string;
-  orderDate?: string;
-  ordererId?: string;
+  memo?: string;
+  specialNote?: string;
+  freightType?: string;
+  paymentCondition?: string;
   ordererName?: string;
   recipientName?: string;
   recipientPhone?: string;
   recipientAddress?: string;
   recipientPostalCode?: string;
-  customsNumber?: string;
   invoiceNumber?: string;
   status?: OutboundStatus;
 }

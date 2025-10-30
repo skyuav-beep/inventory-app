@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lemetreeGradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9" />
+      <stop offset="1" stop-color="#14B8A6" />
+    </linearGradient>
+    <linearGradient id="lemetreeAccent" x1="20" y1="12" x2="44" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A" />
+      <stop offset="1" stop-color="#FBBF24" />
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#lemetreeGradient)" />
+  <path d="M20 16C18.8954 16 18 16.8954 18 18V46C18 47.1046 18.8954 48 20 48H42C43.1046 48 44 47.1046 44 46C44 44.8954 43.1046 44 42 44H24V18C24 16.8954 23.1046 16 22 16H20Z" fill="#F8FAFC" opacity="0.95" />
+  <path d="M26 28C26 26.8954 26.8954 26 28 26H44C45.1046 26 46 26.8954 46 28C46 29.1046 45.1046 30 44 30H31V38C31 39.1046 30.1046 40 29 40C27.8954 40 27 39.1046 27 38V28H26Z" fill="url(#lemetreeAccent)" />
+</svg>

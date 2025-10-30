@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { Resource } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -62,5 +73,21 @@ export class UsersController {
       ip: request.ip ?? request.socket?.remoteAddress,
       userAgent: request.get('user-agent') ?? undefined,
     });
+  }
+
+  @Delete(':id')
+  @RequirePermission(Resource.settings, 'write')
+  async deleteUser(
+    @Param('id') id: string,
+    @ActiveUser() activeUser: ActiveUserData,
+    @Req() request: Request,
+  ) {
+    await this.usersService.disableUser(id, {
+      actor: activeUser,
+      ip: request.ip ?? request.socket?.remoteAddress,
+      userAgent: request.get('user-agent') ?? undefined,
+    });
+
+    return { success: true };
   }
 }

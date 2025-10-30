@@ -11,7 +11,7 @@ CREATE TABLE "audit_logs" (
   "ipAddress" TEXT,
   "userAgent" TEXT,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL
+  CONSTRAINT "audit_logs_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 
 CREATE INDEX "audit_logs_resource_action_createdAt_idx" ON "audit_logs"("resource", "action", "createdAt");

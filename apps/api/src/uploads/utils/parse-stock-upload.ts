@@ -3,40 +3,52 @@ import * as path from 'path';
 import { parse } from 'csv-parse/sync';
 import type { Options } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
+import { $Enums } from '@prisma/client';
 
 export interface ParsedStockRow {
   code: string;
   quantity: number;
   date: Date;
   shipDate?: Date;
-  orderDate?: Date;
   note?: string;
   productName?: string;
   unit?: string;
-  ordererId?: string;
   ordererName?: string;
   recipientName?: string;
   recipientPhone?: string;
   recipientAddress?: string;
   recipientPostalCode?: string;
-  customsNumber?: string;
   invoiceNumber?: string;
+  freightType?: string;
+  paymentCondition?: string;
+  specialNote?: string;
+  memo?: string;
+  status?: $Enums.OutboundStatus;
 }
 
 const PRODUCT_CODE_KEYS = ['code', 'product_code', '제품코드'];
 const PRODUCT_NAME_KEYS = ['product_name', 'productName', '제품명'];
 const UNIT_KEYS = ['unit', '단위'];
-const QUANTITY_KEYS = ['quantity', '수량'];
-const SHIP_DATE_KEYS = ['ship_date', 'shipDate', 'date', '출고일시'];
-const ORDER_DATE_KEYS = ['order_date', 'orderDate', '주문일시'];
+const QUANTITY_KEYS = ['quantity', '수량', '입고수량', '출고수량'];
+const STOCK_DATE_KEYS = [
+  'date',
+  'date_in',
+  'date_out',
+  'ship_date',
+  'shipDate',
+  '입고일',
+  '입고일시',
+  '입고일자',
+  '출고일',
+  '출고일시',
+  '출고일자',
+];
 const NOTE_KEYS = ['note', '비고'];
-const ORDERER_ID_KEYS = ['orderer_id', 'ordererId', '아이디'];
-const ORDERER_NAME_KEYS = ['orderer_name', 'ordererName', '성명'];
+const ORDERER_NAME_KEYS = ['orderer_name', 'ordererName', '성명', '주문자', '주문자명'];
 const RECIPIENT_NAME_KEYS = ['recipient_name', 'recipientName', '수령자'];
 const RECIPIENT_PHONE_KEYS = ['recipient_phone', 'recipientPhone', '전화번호', '연락처'];
 const RECIPIENT_ADDRESS_KEYS = ['recipient_address', 'recipientAddress', '주소'];
 const RECIPIENT_POSTAL_KEYS = ['recipient_postal_code', 'recipientPostalCode', '우편', '우편번호'];
-const CUSTOMS_NUMBER_KEYS = ['customs_number', 'customsNumber', '통관번호'];
 const INVOICE_NUMBER_KEYS = [
   'invoice_number',
   'invoiceNumber',
@@ -44,6 +56,11 @@ const INVOICE_NUMBER_KEYS = [
   'tracking_number',
   'trackingNumber',
 ];
+const FREIGHT_TYPE_KEYS = ['freight_type', 'freightType', '운임', '운임type', '운임구분'];
+const PAYMENT_CONDITION_KEYS = ['payment_condition', 'paymentCondition', '지불조건'];
+const SPECIAL_NOTE_KEYS = ['special_note', 'specialNote', '특기사항'];
+const MEMO_KEYS = ['memo', '메모'];
+const STATUS_KEYS = ['status', 'outbound_status', '출고상태', '상태'];
 
 type RawRecord = Record<string, unknown>;
 
@@ -66,39 +83,43 @@ export async function parseStockUpload(filePath: string): Promise<ParsedStockRow
     const rowNo = index + 1;
     const code = extractRequiredString(row, PRODUCT_CODE_KEYS, rowNo, '제품 코드');
     const quantity = extractQuantity(row, rowNo);
-    const shipDate = extractDate(row, SHIP_DATE_KEYS, rowNo, '출고일시');
-    const orderDate = extractDate(row, ORDER_DATE_KEYS, rowNo, '주문일시');
+    const stockDate = extractDate(row, STOCK_DATE_KEYS, rowNo, '입출고 일시');
     const note = extractOptionalString(row, NOTE_KEYS);
     const productName = extractOptionalString(row, PRODUCT_NAME_KEYS);
     const unit = extractOptionalString(row, UNIT_KEYS);
-    const ordererId = extractOptionalString(row, ORDERER_ID_KEYS);
     const ordererName = extractOptionalString(row, ORDERER_NAME_KEYS);
     const recipientName = extractOptionalString(row, RECIPIENT_NAME_KEYS);
     const recipientPhone = extractOptionalString(row, RECIPIENT_PHONE_KEYS);
     const recipientAddress = extractOptionalString(row, RECIPIENT_ADDRESS_KEYS);
     const recipientPostalCode = extractOptionalString(row, RECIPIENT_POSTAL_KEYS);
-    const customsNumber = extractOptionalString(row, CUSTOMS_NUMBER_KEYS);
     const invoiceNumber = extractOptionalString(row, INVOICE_NUMBER_KEYS);
+    const freightType = extractOptionalString(row, FREIGHT_TYPE_KEYS);
+    const paymentCondition = extractOptionalString(row, PAYMENT_CONDITION_KEYS);
+    const specialNote = extractOptionalString(row, SPECIAL_NOTE_KEYS);
+    const memo = extractOptionalString(row, MEMO_KEYS) ?? note ?? undefined;
+    const status = extractOutboundStatus(row, rowNo);
 
-    const effectiveDate = shipDate ?? new Date();
+    const effectiveDate = stockDate ?? new Date();
 
     return {
       code,
       quantity,
       date: effectiveDate,
-      shipDate: shipDate ?? undefined,
-      orderDate: orderDate ?? undefined,
+      shipDate: stockDate ?? undefined,
       note: note ?? undefined,
       productName: productName ?? undefined,
       unit: unit ?? undefined,
-      ordererId: ordererId ?? undefined,
       ordererName: ordererName ?? undefined,
       recipientName: recipientName ?? undefined,
       recipientPhone: recipientPhone ?? undefined,
       recipientAddress: recipientAddress ?? undefined,
       recipientPostalCode: recipientPostalCode ?? undefined,
-      customsNumber: customsNumber ?? undefined,
       invoiceNumber: invoiceNumber ?? undefined,
+      freightType: freightType ?? undefined,
+      paymentCondition: paymentCondition ?? undefined,
+      specialNote: specialNote ?? undefined,
+      memo: memo ?? undefined,
+      status: status ?? undefined,
     };
   });
 }
@@ -276,4 +297,32 @@ function parseDateValue(value: unknown): Date | undefined {
     return undefined;
   }
   return parsed;
+}
+
+function extractOutboundStatus(row: RawRecord, rowNo: number): $Enums.OutboundStatus | undefined {
+  const raw = extractOptionalString(row, STATUS_KEYS);
+  if (!raw) {
+    return undefined;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  const collapsed = normalized.replace(/[\s_-]+/g, '');
+
+  switch (collapsed) {
+    case 'shipped':
+    case '출고':
+      return $Enums.OutboundStatus.shipped;
+    case 'intransit':
+    case '배송중':
+    case '배송중입니다':
+      return $Enums.OutboundStatus.in_transit;
+    case 'delivered':
+    case '배송완료':
+      return $Enums.OutboundStatus.delivered;
+    case 'returned':
+    case '반품':
+      return $Enums.OutboundStatus.returned;
+    default:
+      throw new Error(`${rowNo}행: 상태 값 "${raw}"을(를) 이해할 수 없습니다.`);
+  }
 }

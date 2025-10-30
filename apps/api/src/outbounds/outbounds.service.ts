@@ -48,7 +48,12 @@ export class OutboundsService {
         skip,
         take: size,
         orderBy: { dateOut: 'desc' },
-        include: { product: true },
+        include: {
+          product: true,
+          returns: {
+            select: { quantity: true, status: true },
+          },
+        },
       }),
       this.prisma.outbound.count({ where }),
     ]);
@@ -85,16 +90,22 @@ export class OutboundsService {
           quantity: payload.quantity,
           dateOut,
           status: payload.status ?? $Enums.OutboundStatus.shipped,
-          note: this.sanitizeNullableString(payload.note),
-          orderDate: payload.orderDate ?? null,
-          ordererId: this.sanitizeNullableString(payload.ordererId),
+          memo: this.sanitizeNullableString(payload.memo),
+          specialNote: this.sanitizeNullableString(payload.specialNote),
+          freightType: this.sanitizeNullableString(payload.freightType),
+          paymentCondition: this.sanitizeNullableString(payload.paymentCondition),
           ordererName: this.sanitizeNullableString(payload.ordererName),
           recipientName: this.sanitizeNullableString(payload.recipientName),
           recipientPhone: this.sanitizeNullableString(payload.recipientPhone),
           recipientAddress: this.sanitizeNullableString(payload.recipientAddress),
           recipientPostalCode: this.sanitizeNullableString(payload.recipientPostalCode),
-          customsNumber: this.sanitizeNullableString(payload.customsNumber),
           invoiceNumber: this.sanitizeNullableString(payload.invoiceNumber),
+        },
+        include: {
+          product: true,
+          returns: {
+            select: { quantity: true, status: true },
+          },
         },
       });
 
@@ -107,7 +118,7 @@ export class OutboundsService {
       );
       this.collectLowStockCandidate(lowStockCandidates, adjustResult);
 
-      return toOutboundEntity({ ...outbound, product });
+      return toOutboundEntity(outbound);
     });
 
     await this.dispatchLowStockAlerts(lowStockCandidates);
@@ -128,7 +139,12 @@ export class OutboundsService {
   async findOne(id: string): Promise<OutboundEntity> {
     const outbound = await this.prisma.outbound.findUnique({
       where: { id },
-      include: { product: true },
+      include: {
+        product: true,
+        returns: {
+          select: { quantity: true, status: true },
+        },
+      },
     });
 
     if (!outbound) {
@@ -148,7 +164,12 @@ export class OutboundsService {
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.outbound.findUnique({
         where: { id },
-        include: { product: true },
+        include: {
+          product: true,
+          returns: {
+            select: { quantity: true, status: true },
+          },
+        },
       });
 
       if (!existing) {
@@ -157,8 +178,6 @@ export class OutboundsService {
 
       const nextProductId = payload.productId ?? existing.productId;
       const nextQuantity = payload.quantity ?? existing.quantity;
-      const nextDateOut = payload.dateOut ?? existing.dateOut;
-
       let targetProduct = existing.product;
 
       if (nextProductId !== existing.productId) {
@@ -193,13 +212,20 @@ export class OutboundsService {
         data: {
           productId: nextProductId,
           quantity: nextQuantity,
-          dateOut: nextDateOut,
+          dateOut: payload.dateOut ?? undefined,
           status: payload.status !== undefined ? payload.status : undefined,
-          note: payload.note !== undefined ? this.sanitizeNullableString(payload.note) : undefined,
-          orderDate: payload.orderDate !== undefined ? (payload.orderDate ?? null) : undefined,
-          ordererId:
-            payload.ordererId !== undefined
-              ? this.sanitizeNullableString(payload.ordererId)
+          memo: payload.memo !== undefined ? this.sanitizeNullableString(payload.memo) : undefined,
+          specialNote:
+            payload.specialNote !== undefined
+              ? this.sanitizeNullableString(payload.specialNote)
+              : undefined,
+          freightType:
+            payload.freightType !== undefined
+              ? this.sanitizeNullableString(payload.freightType)
+              : undefined,
+          paymentCondition:
+            payload.paymentCondition !== undefined
+              ? this.sanitizeNullableString(payload.paymentCondition)
               : undefined,
           ordererName:
             payload.ordererName !== undefined
@@ -221,16 +247,17 @@ export class OutboundsService {
             payload.recipientPostalCode !== undefined
               ? this.sanitizeNullableString(payload.recipientPostalCode)
               : undefined,
-          customsNumber:
-            payload.customsNumber !== undefined
-              ? this.sanitizeNullableString(payload.customsNumber)
-              : undefined,
           invoiceNumber:
             payload.invoiceNumber !== undefined
               ? this.sanitizeNullableString(payload.invoiceNumber)
               : undefined,
         },
-        include: { product: true },
+        include: {
+          product: true,
+          returns: {
+            select: { quantity: true, status: true },
+          },
+        },
       });
 
       if (existing.productId === nextProductId) {

@@ -87,6 +87,7 @@ export class SettingsService {
     return this.prisma.notificationSetting.create({
       data: {
         id: this.defaultSettingId,
+        telegramEnabled: false,
       },
       include: { telegramTargets: true },
     });

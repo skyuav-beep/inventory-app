@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import brandLogoLarge from '../../assets/media/logos/Lemetree_logo_Large.png';
 import { appRoutes } from '../../app/routes';
 import { useAuth } from '../../hooks/useAuth';
 import styles from './Sidebar.module.css';
@@ -44,10 +45,8 @@ export function Sidebar({ mobileOpen, collapsed, onClose, onToggleCollapse }: Si
     <aside className={sidebarClassName}>
       <div className={styles.header}>
         <div className={styles.logoArea}>
-          <span className={styles.logoMark} aria-hidden="true">
-            📦
-          </span>
-          {!collapsed && <span className={styles.logoText}>Inventory</span>}
+          <img src={brandLogoLarge} alt="Lremettre ERP 로고" className={styles.logoImage} />
+          {!collapsed && <span className={styles.logoText}>Lremettre ERP</span>}
         </div>
         <button
           type="button"

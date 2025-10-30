@@ -33,15 +33,15 @@
   justify-content: center;
 }
 
-.logoMark {
-  font-size: 24px;
+.logoImage {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
 }
 
-.logoMarkCollapsed {
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.collapsed .logoImage {
+  width: 32px;
+  height: 32px;
 }
 
 .logoText {

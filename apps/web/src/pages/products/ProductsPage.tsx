@@ -1,10 +1,15 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { ProductDisabledFilter, useProducts } from '../../app/hooks/useProducts';
 import type { ProductListItem } from '../../services/productService';
-import { ProductStatus, createProduct, updateProduct } from '../../services/productService';
+import {
+  ProductStatus,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from '../../services/productService';
 import { useAuth } from '../../hooks/useAuth';
 import { Modal } from '../../components/ui/Modal';
-import { downloadCsvTemplate } from '../../lib/downloadTemplate';
+import { downloadExcel } from '../../lib/downloadExcel';
 import styles from './ProductsPage.module.css';
 
 const statusOptions: Array<{ value: ProductStatus | 'all'; label: string }> = [
@@ -77,6 +82,8 @@ export function ProductsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [togglingProductId, setTogglingProductId] = useState<string | null>(null);
+  const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [editingSummary, setEditingSummary] = useState<ProductListItem | null>(null);
   const isEditing = editingProductId !== null;
 
   useEffect(() => {
@@ -126,6 +133,7 @@ export function ProductsPage() {
     setEditingProductId(null);
     setProductForm(createDefaultProductForm());
     setFormError(null);
+    setEditingSummary(null);
     setModalOpen(true);
   };
 
@@ -139,6 +147,7 @@ export function ProductsPage() {
       safetyStock: product.safetyStock.toString(),
       disabled: product.disabled,
     });
+    setEditingSummary(product);
     setFormError(null);
     setEditingProductId(product.id);
     setModalOpen(true);
@@ -149,6 +158,7 @@ export function ProductsPage() {
       return;
     }
     setEditingProductId(null);
+    setEditingSummary(null);
     setModalOpen(false);
   };
 
@@ -226,6 +236,7 @@ export function ProductsPage() {
       refresh();
       setModalOpen(false);
       setEditingProductId(null);
+      setEditingSummary(null);
       setProductForm(createDefaultProductForm());
     } catch (err) {
       console.error(err);
@@ -241,8 +252,16 @@ export function ProductsPage() {
 
   const tableColumnCount = canManageProducts ? 12 : 11;
 
+  const modalSummaryUnit =
+    isEditing && editingSummary
+      ? productForm.unit.trim().length > 0
+        ? productForm.unit.trim()
+        : editingSummary.unit
+      : null;
+  const modalSummaryDisabled = isEditing && editingSummary ? productForm.disabled : false;
+
   const handleToggleProductState = async (product: ProductListItem) => {
-    if (!canManageProducts || togglingProductId) {
+    if (!canManageProducts || togglingProductId || deletingProductId) {
       return;
     }
     setFormError(null);
@@ -260,15 +279,33 @@ export function ProductsPage() {
     }
   };
 
-  const handleTemplateDownload = () => {
-    downloadCsvTemplate(
-      'products-template.csv',
-      ['code', 'name', 'description', 'specification', 'unit', 'safetyStock'],
-      [['SKU-0001', '샘플 제품', '', '', 'EA', '10']],
+  const handleDeleteProduct = async (product: ProductListItem) => {
+    if (!canManageProducts || deletingProductId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `제품 "${product.name}"(${product.code})을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
     );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setFormError(null);
+    setDeletingProductId(product.id);
+    try {
+      await deleteProduct(product.id);
+      refresh();
+    } catch (err) {
+      console.error(err);
+      setFormError(err instanceof Error ? err.message : '제품 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeletingProductId(null);
+    }
   };
 
-  const handleProductDownload = (product: ProductListItem) => {
+  const handleExcelDownload = () => {
     const headers = [
       '제품코드',
       '제품명',
@@ -284,22 +321,23 @@ export function ProductsPage() {
       '사용 여부',
     ];
 
-    const row = [
+    const rows = items.map((product) => [
       product.code,
       product.name,
       product.description ?? '',
       product.specification ?? '',
       product.unit ?? 'EA',
-      product.safetyStock.toString(),
-      product.remain.toString(),
-      product.totalIn.toString(),
-      product.totalOut.toString(),
-      product.totalReturn.toString(),
+      product.safetyStock,
+      product.remain,
+      product.totalIn,
+      product.totalOut,
+      product.totalReturn,
       statusLabels[product.status],
       product.disabled ? '사용 중지' : '사용 중',
-    ];
+    ]);
 
-    downloadCsvTemplate(`${product.code}_detail.csv`, headers, [row]);
+    const today = new Date().toISOString().split('T')[0];
+    downloadExcel(`products_${today}.xlsx`, headers, rows);
   };
 
   return (
@@ -310,8 +348,8 @@ export function ProductsPage() {
           <p>제품 검색 및 안전재고 관리를 위한 화면입니다.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} onClick={handleTemplateDownload}>
-            템플릿 다운로드
+          <button type="button" className={styles.secondaryButton} onClick={handleExcelDownload}>
+            엑셀 다운로드
           </button>
           <button
             type="button"
@@ -475,6 +513,7 @@ export function ProductsPage() {
                             type="button"
                             className={`${styles.tableActionButton} ${styles.tableActionButtonEdit}`}
                             onClick={() => handleEditClick(product)}
+                            disabled={deletingProductId === product.id}
                           >
                             수정
                           </button>
@@ -486,7 +525,9 @@ export function ProductsPage() {
                                 : styles.tableActionButtonToggleDisable
                             }`}
                             onClick={() => handleToggleProductState(product)}
-                            disabled={togglingProductId === product.id}
+                            disabled={
+                              togglingProductId === product.id || deletingProductId === product.id
+                            }
                           >
                             {product.disabled
                               ? togglingProductId === product.id
@@ -498,10 +539,11 @@ export function ProductsPage() {
                           </button>
                           <button
                             type="button"
-                            className={`${styles.tableActionButton} ${styles.tableActionButtonDownload}`}
-                            onClick={() => handleProductDownload(product)}
+                            className={`${styles.tableActionButton} ${styles.tableActionButtonDelete}`}
+                            onClick={() => handleDeleteProduct(product)}
+                            disabled={deletingProductId === product.id}
                           >
-                            다운로드
+                            {deletingProductId === product.id ? '삭제 중...' : '삭제'}
                           </button>
                         </div>
                       </td>
@@ -552,6 +594,64 @@ export function ProductsPage() {
         }
       >
         <form id="product-form" className={styles.modalForm} onSubmit={handleProductSubmit}>
+          {isEditing && editingSummary && (
+            <div className={styles.modalSummary}>
+              <div className={styles.modalSummaryGrid}>
+                <div className={styles.modalSummaryItem}>
+                  <span className={styles.modalSummaryLabel}>현재 재고</span>
+                  <span className={styles.modalSummaryValue}>
+                    {editingSummary.remain.toLocaleString()}{' '}
+                    {modalSummaryUnit ?? editingSummary.unit}
+                  </span>
+                </div>
+                <div className={styles.modalSummaryItem}>
+                  <span className={styles.modalSummaryLabel}>총 입고</span>
+                  <span className={styles.modalSummaryValue}>
+                    {editingSummary.totalIn.toLocaleString()}{' '}
+                    {modalSummaryUnit ?? editingSummary.unit}
+                  </span>
+                </div>
+                <div className={styles.modalSummaryItem}>
+                  <span className={styles.modalSummaryLabel}>총 출고</span>
+                  <span className={styles.modalSummaryValue}>
+                    {editingSummary.totalOut.toLocaleString()}{' '}
+                    {modalSummaryUnit ?? editingSummary.unit}
+                  </span>
+                </div>
+                <div className={styles.modalSummaryItem}>
+                  <span className={styles.modalSummaryLabel}>총 반품</span>
+                  <span className={styles.modalSummaryValue}>
+                    {editingSummary.totalReturn.toLocaleString()}{' '}
+                    {modalSummaryUnit ?? editingSummary.unit}
+                  </span>
+                </div>
+                <div className={styles.modalSummaryItem}>
+                  <span className={styles.modalSummaryLabel}>재고 상태</span>
+                  <span
+                    className={`${styles.status} ${
+                      editingSummary.status === 'low'
+                        ? styles.statusLow
+                        : editingSummary.status === 'warn'
+                          ? styles.statusWarn
+                          : styles.statusNormal
+                    }`}
+                  >
+                    {statusLabels[editingSummary.status]}
+                  </span>
+                </div>
+                <div className={styles.modalSummaryItem}>
+                  <span className={styles.modalSummaryLabel}>사용 여부</span>
+                  <span
+                    className={`${styles.modalSummaryBadge} ${
+                      modalSummaryDisabled ? styles.disabledBadge : styles.activeBadge
+                    }`}
+                  >
+                    {modalSummaryDisabled ? '사용 중지' : '사용 중'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
           <div className={styles.formField}>
             <div className={styles.labelRow}>
               <label htmlFor="product-code">제품 코드</label>

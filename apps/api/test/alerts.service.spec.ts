@@ -45,7 +45,7 @@ function createSettings(
 ): NotificationSettingWithTargets {
   return {
     id: overrides.id ?? 'default-notification-setting',
-    telegramEnabled: overrides.telegramEnabled ?? true,
+    telegramEnabled: overrides.telegramEnabled ?? false,
     telegramCooldownMin: overrides.telegramCooldownMin ?? 15,
     telegramQuietHours: overrides.telegramQuietHours ?? '22-07',
     telegramBotToken: overrides.telegramBotToken ?? 'bot-token',
@@ -60,6 +60,7 @@ function createAlertsService(
   overrides: {
     decision?: AlertPolicyDecision;
     settings?: NotificationSettingWithTargets;
+    telegramSend?: jest.Mock;
   } = {},
 ): ServiceMocks {
   const decision: AlertPolicyDecision = overrides.decision ?? {
@@ -98,7 +99,7 @@ function createAlertsService(
   };
 
   const telegram = {
-    sendMessage: jest.fn().mockResolvedValue(undefined),
+    sendMessage: overrides.telegramSend ?? jest.fn().mockResolvedValue(undefined),
   };
 
   const service = new AlertsService(
@@ -128,6 +129,7 @@ describe('AlertsService', () => {
         createTarget({ id: 'enabled', chatId: 'chat-enabled', enabled: true }),
         createTarget({ id: 'disabled', chatId: 'chat-disabled', enabled: false }),
       ],
+      telegramEnabled: true,
     });
     const {
       service,
@@ -148,7 +150,7 @@ describe('AlertsService', () => {
 
     const createArgs = (prisma.alert.create as jest.Mock).mock.calls[0][0];
     expect(createArgs.data.channel).toBe(Channel.telegram);
-    expect(createArgs.data.message).toContain('requested by Ops Manager');
+    expect(createArgs.data.message).toBe('안녕하세요 르메뜨리입니다');
     expect(createArgs.data.sentAt).toBeInstanceOf(Date);
 
     expect(result.decision.canSend).toBe(true);
@@ -160,7 +162,7 @@ describe('AlertsService', () => {
     expect(telegram.sendMessage).toHaveBeenCalledWith({
       botToken: 'bot-token',
       chatId: 'chat-enabled',
-      text: expect.stringContaining('requested by Ops Manager'),
+      text: '안녕하세요 르메뜨리입니다',
     });
   });
 
@@ -208,6 +210,39 @@ describe('AlertsService', () => {
     expect(createArgs.data.dedupKey).toMatch(/^deferred-/);
   });
 
+  it('텔레그램 설정이 유효하지 않으면 알림을 재시도 상태로 저장한다', async () => {
+    const settings = createSettings({
+      telegramEnabled: true,
+      telegramTargets: [
+        createTarget({ id: 'target-disabled', chatId: 'chat-disabled', enabled: false }),
+      ],
+    });
+
+    const { service, prisma, settings: settingsSvc, telegram } = createAlertsService({ settings });
+
+    const result = await service.notifyLowStock({
+      id: 'product-2',
+      name: 'Gadget',
+      code: 'G-2',
+      remain: 1,
+      safetyStock: 10,
+    });
+
+    expect(settingsSvc.getRawSettings).toHaveBeenCalledTimes(1);
+    expect(telegram.sendMessage).not.toHaveBeenCalled();
+    expect(prisma.alert.create).toHaveBeenCalledTimes(1);
+
+    const createArgs = (prisma.alert.create as jest.Mock).mock.calls[0][0];
+    expect(createArgs.data.productId).toBe('product-2');
+    expect(createArgs.data.sentAt).toBeNull();
+    expect(createArgs.data.retryReason).toBe('delivery_error');
+    expect(createArgs.data.retryAt).toBeInstanceOf(Date);
+
+    expect(result.alert?.retryReason).toBe('delivery_error');
+    expect(result.alert?.retryAt).toBeDefined();
+    expect(result.alert?.sentAt).toBeUndefined();
+  });
+
   it('사용자 정의 알림 본문이 비어 있으면 예외를 던진다', async () => {
     const { service, prisma, settings: settingsSvc, telegram } = createAlertsService();
 
@@ -220,25 +255,76 @@ describe('AlertsService', () => {
     expect(telegram.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('봇 토큰이 비어있으면 기록만 남기고 발송하지 않는다', async () => {
+  it('봇 토큰이 비어있으면 사용자 정의 발송을 거부한다', async () => {
     const settings = createSettings({
+      telegramEnabled: true,
       telegramBotToken: '   ',
       telegramTargets: [createTarget({ chatId: 'chat-enabled', enabled: true })],
     });
 
     const { service, prisma, settings: settingsSvc, telegram } = createAlertsService({ settings });
 
-    const result = await service.sendCustomAlert(activeAdmin, '점검 알림');
+    await expect(service.sendCustomAlert(activeAdmin, '점검 알림')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
 
     expect(settingsSvc.getRawSettings).toHaveBeenCalledTimes(1);
-    expect(prisma.alert.create).toHaveBeenCalledTimes(1);
-
-    const createArgs = (prisma.alert.create as jest.Mock).mock.calls[0][0];
-    expect(createArgs.data.message).toContain('[관리자 Ops Manager] 점검 알림');
-    expect(createArgs.data.sentAt).toBeInstanceOf(Date);
-
-    expect(result.alert).toBeDefined();
+    expect(prisma.alert.create).not.toHaveBeenCalled();
     expect(telegram.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('텔레그램이 비활성화돼 있으면 테스트 발송을 거부한다', async () => {
+    const settings = createSettings({
+      telegramEnabled: false,
+      telegramBotToken: 'bot-token',
+      telegramTargets: [createTarget({ chatId: 'chat-enabled', enabled: true })],
+    });
+
+    const { service, prisma, settings: settingsSvc, telegram } = createAlertsService({ settings });
+
+    await expect(service.sendTestAlert(activeAdmin)).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(settingsSvc.getRawSettings).toHaveBeenCalledTimes(1);
+    expect(prisma.alert.create).not.toHaveBeenCalled();
+    expect(telegram.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('활성화된 텔레그램 대상이 없으면 테스트 발송을 거부한다', async () => {
+    const settings = createSettings({
+      telegramEnabled: true,
+      telegramTargets: [createTarget({ chatId: 'chat-disabled', enabled: false })],
+    });
+
+    const { service, prisma, settings: settingsSvc, telegram } = createAlertsService({ settings });
+
+    await expect(service.sendTestAlert(activeAdmin)).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(settingsSvc.getRawSettings).toHaveBeenCalledTimes(1);
+    expect(prisma.alert.create).not.toHaveBeenCalled();
+    expect(telegram.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('텔레그램 API 오류가 발생하면 사용자 정의 발송을 실패로 처리한다', async () => {
+    const settings = createSettings({ telegramEnabled: true });
+    const telegramSend = jest.fn().mockRejectedValue(new Error('Unauthorized'));
+
+    const {
+      service,
+      prisma,
+      settings: settingsSvc,
+      telegram,
+    } = createAlertsService({
+      settings,
+      telegramSend,
+    });
+
+    await expect(service.sendCustomAlert(activeAdmin, '공지')).rejects.toThrow(
+      '텔레그램 메시지 전송에 실패했습니다: Unauthorized',
+    );
+
+    expect(settingsSvc.getRawSettings).toHaveBeenCalledTimes(1);
+    expect(telegram.sendMessage).toHaveBeenCalledTimes(1);
+    expect(prisma.alert.create).not.toHaveBeenCalled();
   });
 
   describe('processPendingAlert', () => {
@@ -315,7 +401,7 @@ describe('AlertsService', () => {
       };
 
       const policy = { decideSend: jest.fn().mockResolvedValue({ canSend: true, reason: 'ok' }) };
-      const settings = createSettings();
+      const settings = createSettings({ telegramEnabled: true });
       const settingsService = { getRawSettings: jest.fn().mockResolvedValue(settings) };
       const telegram = { sendMessage: jest.fn().mockResolvedValue(undefined) };
 
@@ -341,6 +427,48 @@ describe('AlertsService', () => {
           retryReason: null,
           retryCount: { increment: 1 },
         },
+      });
+    });
+
+    it('설정 문제로 전송하지 못하면 재시도를 예약한다', async () => {
+      const updateMock = jest.fn().mockResolvedValue({ retryCount: 1 });
+      const prisma = {
+        alert: {
+          create: jest.fn(),
+          findUnique: jest.fn().mockResolvedValue(baseAlert),
+          update: updateMock,
+        },
+        $transaction: jest.fn(),
+      };
+
+      const policy = { decideSend: jest.fn().mockResolvedValue({ canSend: true, reason: 'ok' }) };
+      const settings = createSettings({
+        telegramEnabled: true,
+        telegramTargets: [createTarget({ id: 'target-disabled', enabled: false })],
+      });
+      const settingsService = { getRawSettings: jest.fn().mockResolvedValue(settings) };
+      const telegram = { sendMessage: jest.fn() };
+
+      const service = new AlertsService(
+        prisma as unknown as PrismaService,
+        policy as unknown as AlertPolicyService,
+        settingsService as unknown as SettingsService,
+        telegram as unknown as TelegramService,
+      );
+
+      const result = await service.processPendingAlert(baseAlert.id);
+
+      expect(result).toBe('rescheduled');
+      expect(settingsService.getRawSettings).toHaveBeenCalledTimes(1);
+      expect(telegram.sendMessage).not.toHaveBeenCalled();
+      expect(updateMock).toHaveBeenCalledWith({
+        where: { id: baseAlert.id },
+        data: {
+          retryAt: expect.any(Date),
+          retryReason: 'error',
+          retryCount: { increment: 1 },
+        },
+        select: { retryCount: true },
       });
     });
 

@@ -1,10 +1,18 @@
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useInbounds } from '../../app/hooks/useInbounds';
 import { useAuth } from '../../hooks/useAuth';
 import { ProductListItem, fetchProducts } from '../../services/productService';
-import { createInbound } from '../../services/inboundService';
+import {
+  createInbound,
+  deleteInbound,
+  InboundListItem,
+  updateInbound,
+} from '../../services/inboundService';
+import { uploadStockFile, UploadJob } from '../../services/uploadService';
 import { Modal } from '../../components/ui/Modal';
 import { downloadCsvTemplate } from '../../lib/downloadTemplate';
+import { downloadExcel } from '../../lib/downloadExcel';
 import styles from './InboundsPage.module.css';
 
 const logError = (err: unknown) => {
@@ -22,6 +30,17 @@ interface InboundFormState {
   note: string;
 }
 
+const formatDateInputValue = (value: string): string => {
+  if (!value) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+  return date.toISOString().slice(0, 10);
+};
+
 const createDefaultInboundForm = (): InboundFormState => ({
   productId: '',
   quantity: '',
@@ -29,8 +48,16 @@ const createDefaultInboundForm = (): InboundFormState => ({
   note: '',
 });
 
+const buildFormStateFromInbound = (inbound: InboundListItem): InboundFormState => ({
+  productId: inbound.productId,
+  quantity: String(inbound.quantity),
+  dateIn: formatDateInputValue(inbound.dateIn),
+  note: inbound.note ?? '',
+});
+
 export function InboundsPage() {
   const { hasPermission } = useAuth();
+  const navigate = useNavigate();
   const canRegisterInbound = hasPermission('inbounds', { write: true });
   const { items, pagination, loading, error, filters, setSearch, setPage, refresh, summary } =
     useInbounds({
@@ -39,9 +66,21 @@ export function InboundsPage() {
 
   const [searchInput, setSearchInput] = useState(filters.search);
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isBulkModalOpen, setBulkModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
   const [formState, setFormState] = useState<InboundFormState>(() => createDefaultInboundForm());
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkJob, setBulkJob] = useState<UploadJob | null>(null);
+  const bulkFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [editingInboundId, setEditingInboundId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const isEditing = modalMode === 'edit';
+  const tableColumnCount = canRegisterInbound ? 6 : 5;
   const [productOptions, setProductOptions] = useState<ProductListItem[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState<string | null>(null);
@@ -87,7 +126,7 @@ export function InboundsPage() {
     try {
       setOptionsLoading(true);
       setOptionsError(null);
-      const response = await fetchProducts({ page: 1, size: 200, disabled: false });
+      const response = await fetchProducts({ page: 1, size: 200, includeDisabled: true });
       setProductOptions(response.data);
     } catch (err) {
       logError(err);
@@ -108,8 +147,12 @@ export function InboundsPage() {
   }, [isModalOpen, productOptions.length, optionsLoading, optionsError, loadProductOptions]);
 
   const openModal = () => {
+    setModalMode('create');
+    setEditingInboundId(null);
     setFormState(createDefaultInboundForm());
     setFormError(null);
+    setActionError(null);
+    setOptionsError(null);
     setModalOpen(true);
   };
 
@@ -117,7 +160,81 @@ export function InboundsPage() {
     if (submitting) {
       return;
     }
+    setModalMode('create');
+    setEditingInboundId(null);
+    setFormState(createDefaultInboundForm());
+    setFormError(null);
     setModalOpen(false);
+  };
+
+  const openEditModal = (inbound: InboundListItem) => {
+    setModalMode('edit');
+    setEditingInboundId(inbound.id);
+    setFormState(buildFormStateFromInbound(inbound));
+    setFormError(null);
+    setActionError(null);
+    setOptionsError(null);
+    setModalOpen(true);
+  };
+
+  const openBulkModal = () => {
+    setBulkModalOpen(true);
+    setBulkFile(null);
+    setBulkError(null);
+    setBulkJob(null);
+  };
+
+  const closeBulkModal = () => {
+    if (bulkUploading) {
+      return;
+    }
+    setBulkModalOpen(false);
+    setBulkFile(null);
+    setBulkError(null);
+    setBulkJob(null);
+    if (bulkFileInputRef.current) {
+      bulkFileInputRef.current.value = '';
+    }
+  };
+
+  const handleBulkFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    setBulkFile(nextFile);
+    setBulkError(null);
+    setBulkJob(null);
+  };
+
+  const handleBulkUpload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!bulkFile) {
+      setBulkError('업로드할 템플릿 파일을 선택하세요.');
+      return;
+    }
+
+    try {
+      setBulkUploading(true);
+      setBulkError(null);
+      const response = await uploadStockFile('inbound', bulkFile);
+      setBulkJob(response.job);
+      setBulkFile(null);
+      if (bulkFileInputRef.current) {
+        bulkFileInputRef.current.value = '';
+      }
+    } catch (err) {
+      logError(err);
+      setBulkJob(null);
+      setBulkError(err instanceof Error ? err.message : '대량 입고 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
+  const goToUploadsPage = () => {
+    if (bulkUploading) {
+      return;
+    }
+    closeBulkModal();
+    navigate('/uploads?type=inbound');
   };
 
   const handleFormChange = (
@@ -146,21 +263,33 @@ export function InboundsPage() {
     setSubmitting(true);
     setFormError(null);
 
+    const payload = {
+      productId: formState.productId,
+      quantity: quantityValue,
+      dateIn: formState.dateIn ? new Date(formState.dateIn).toISOString() : undefined,
+      note: formState.note.trim() ? formState.note.trim() : undefined,
+    };
+
     try {
-      await createInbound({
-        productId: formState.productId,
-        quantity: quantityValue,
-        dateIn: formState.dateIn ? new Date(formState.dateIn).toISOString() : undefined,
-        note: formState.note.trim() ? formState.note.trim() : undefined,
-      });
+      if (isEditing && editingInboundId) {
+        await updateInbound(editingInboundId, payload);
+      } else {
+        await createInbound(payload);
+        setPage(1);
+      }
 
       setModalOpen(false);
+      setModalMode('create');
+      setEditingInboundId(null);
       setFormState(createDefaultInboundForm());
-      setPage(1);
+      setActionError(null);
       refresh();
     } catch (err) {
       logError(err);
-      setFormError(err instanceof Error ? err.message : '입고 등록 중 오류가 발생했습니다.');
+      const defaultMessage = isEditing
+        ? '입고 수정 중 오류가 발생했습니다.'
+        : '입고 등록 중 오류가 발생했습니다.';
+      setFormError(err instanceof Error ? err.message : defaultMessage);
     } finally {
       setSubmitting(false);
     }
@@ -170,9 +299,52 @@ export function InboundsPage() {
     const today = new Date().toISOString().slice(0, 10);
     downloadCsvTemplate(
       'inbounds-template.csv',
-      ['code', 'quantity', 'date', 'note'],
+      ['제품코드', '입고수량', '입고일', '비고'],
       [['SKU-0001', '10', today, '메모']],
     );
+  };
+
+  const handleExcelDownload = () => {
+    const headers = ['입고일', '제품코드', '제품명', '입고 수량', '비고', '등록 시각'];
+    const rows = items.map((inbound) => [
+      new Date(inbound.dateIn).toLocaleString(),
+      inbound.productCode,
+      inbound.productName,
+      inbound.quantity,
+      inbound.note ?? '',
+      new Date(inbound.createdAt).toLocaleString(),
+    ]);
+
+    const today = new Date().toISOString().split('T')[0];
+    downloadExcel(`inbounds_${today}.xlsx`, headers, rows);
+  };
+
+  const handleDelete = async (inbound: InboundListItem) => {
+    if (!canRegisterInbound) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `제품 "${inbound.productName}"(${inbound.productCode}) 입고 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingId(inbound.id);
+    setActionError(null);
+
+    try {
+      await deleteInbound(inbound.id);
+      refresh();
+    } catch (err) {
+      logError(err);
+      const message = err instanceof Error ? err.message : '입고 내역 삭제 중 오류가 발생했습니다.';
+      setActionError(message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -183,8 +355,16 @@ export function InboundsPage() {
           <p>입고 기록과 수량 추이를 확인하고 신규 입고를 등록하세요.</p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondaryButton} onClick={handleTemplateDownload}>
-            입고 템플릿
+          <button type="button" className={styles.secondaryButton} onClick={handleExcelDownload}>
+            엑셀 다운로드
+          </button>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            disabled={!canRegisterInbound}
+            onClick={openBulkModal}
+          >
+            대량 입고 등록
           </button>
           <button
             type="button"
@@ -239,6 +419,7 @@ export function InboundsPage() {
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
+      {actionError && <div className={styles.errorBanner}>{actionError}</div>}
 
       <div className={styles.tableWrapper}>
         <table>
@@ -249,16 +430,17 @@ export function InboundsPage() {
               <th>입고 수량</th>
               <th>비고</th>
               <th>등록 시각</th>
+              {canRegisterInbound && <th>작업</th>}
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr className={styles.loadingRow}>
-                <td colSpan={5}>입고 내역을 불러오는 중입니다...</td>
+                <td colSpan={tableColumnCount}>입고 내역을 불러오는 중입니다...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr className={styles.emptyRow}>
-                <td colSpan={5}>조건에 맞는 입고 기록이 없습니다.</td>
+                <td colSpan={tableColumnCount}>조건에 맞는 입고 기록이 없습니다.</td>
               </tr>
             ) : (
               items.map((inbound) => (
@@ -273,6 +455,26 @@ export function InboundsPage() {
                   <td>{inbound.quantity.toLocaleString()}</td>
                   <td>{inbound.note ?? '-'}</td>
                   <td>{new Date(inbound.createdAt).toLocaleString()}</td>
+                  {canRegisterInbound && (
+                    <td className={styles.actionCell}>
+                      <button
+                        type="button"
+                        className={styles.actionButton}
+                        onClick={() => openEditModal(inbound)}
+                        disabled={submitting || deletingId === inbound.id}
+                      >
+                        {submitting && editingInboundId === inbound.id ? '수정 중...' : '수정'}
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.actionButton} ${styles.actionButtonDanger}`}
+                        onClick={() => handleDelete(inbound)}
+                        disabled={deletingId === inbound.id || submitting}
+                      >
+                        {deletingId === inbound.id ? '삭제 중...' : '삭제'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -292,9 +494,68 @@ export function InboundsPage() {
         </button>
       </div>
 
+      <Modal open={isBulkModalOpen} onClose={closeBulkModal} title="대량 입고 등록" size="lg">
+        <form className={styles.bulkForm} onSubmit={handleBulkUpload}>
+          <p className={styles.bulkDescription}>
+            입고 템플릿(.xlsx, .xls, .csv) 파일을 업로드하면 백그라운드 작업으로 자동 등록됩니다.
+          </p>
+          <div className={styles.bulkTemplateRow}>
+            <span>템플릿이 필요하신가요?</span>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={handleTemplateDownload}
+            >
+              입고 템플릿 다운로드
+            </button>
+          </div>
+          <label htmlFor="bulk-inbound-file" className={styles.bulkFileInput}>
+            <span>템플릿 파일 업로드</span>
+            <input
+              id="bulk-inbound-file"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              ref={bulkFileInputRef}
+              onChange={handleBulkFileChange}
+              disabled={bulkUploading}
+            />
+          </label>
+          {bulkFile && <p className={styles.bulkSelectedFile}>선택된 파일: {bulkFile.name}</p>}
+          {bulkError && <p className={styles.errorText}>{bulkError}</p>}
+          {bulkJob && (
+            <div className={styles.bulkResult}>
+              <p>
+                업로드 작업이 생성되었습니다. 작업 ID: <code>{bulkJob.id}</code>
+              </p>
+              <button
+                type="button"
+                className={styles.linkButton}
+                onClick={goToUploadsPage}
+                disabled={bulkUploading}
+              >
+                업로드 내역에서 상태 확인
+              </button>
+            </div>
+          )}
+          <div className={styles.bulkModalActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={closeBulkModal}
+              disabled={bulkUploading}
+            >
+              닫기
+            </button>
+            <button type="submit" className={styles.primaryButton} disabled={bulkUploading}>
+              {bulkUploading ? '업로드 중...' : '업로드'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal
         open={isModalOpen}
-        title="입고 등록"
+        title={isEditing ? '입고 수정' : '입고 등록'}
         onClose={closeModal}
         footer={
           <>
@@ -308,16 +569,16 @@ export function InboundsPage() {
             </button>
             <button
               type="submit"
-              form="inbound-create-form"
+              form="inbound-form"
               className={`${styles.modalFooterButton} ${styles.modalFooterButtonPrimary}`}
               disabled={submitting || optionsLoading || !!optionsError}
             >
-              {submitting ? '등록 중...' : '등록'}
+              {submitting ? (isEditing ? '수정 중...' : '등록 중...') : isEditing ? '수정' : '등록'}
             </button>
           </>
         }
       >
-        <form id="inbound-create-form" className={styles.modalForm} onSubmit={handleSubmit}>
+        <form id="inbound-form" className={styles.modalForm} onSubmit={handleSubmit}>
           <div className={styles.formField}>
             <label htmlFor="inbound-product">제품 선택</label>
             <select
@@ -340,7 +601,11 @@ export function InboundsPage() {
             {optionsError && (
               <div className={styles.errorText}>
                 <span>{optionsError}</span>
-                <button type="button" onClick={loadProductOptions} className={styles.retryButton}>
+                <button
+                  type="button"
+                  onClick={() => void loadProductOptions()}
+                  className={styles.retryButton}
+                >
                   다시 시도
                 </button>
               </div>

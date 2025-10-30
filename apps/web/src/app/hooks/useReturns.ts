@@ -90,7 +90,6 @@ export function useReturns(
         item.productName.toLowerCase().includes(keyword) ||
         item.productCode.toLowerCase().includes(keyword) ||
         item.reason.toLowerCase().includes(keyword) ||
-        (item.ordererId?.toLowerCase().includes(keyword) ?? false) ||
         (item.ordererName?.toLowerCase().includes(keyword) ?? false)
       );
     });

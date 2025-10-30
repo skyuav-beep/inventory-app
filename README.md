@@ -36,20 +36,20 @@ npm install
 ```ini
 DATABASE_URL=postgresql://inventory:inventory@localhost:5432/inventory
 JWT_SECRET=change-me
-# 선택 사항: 텔레그램 초기 설정
+# 선택 사항: 텔레그램 초기 설정(UI에서 등록 가능)
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 # 시드 관리자 계정
-ADMIN_SEED_EMAIL=admin@example.com
+ADMIN_SEED_EMAIL=
 ADMIN_SEED_NAME=Admin
-ADMIN_SEED_PASSWORD=ChangeMe123!
+ADMIN_SEED_PASSWORD=
 ```
 
 API 전용 변수는 `apps/api/.env.example`에서도 동일하게 정의되어 있으므로, 서비스를 개별적으로 실행할 때 필요한 값만 덮어쓸 수 있습니다.
 
 ### 텔레그램 알림
 
-- `TELEGRAM_BOT_TOKEN`: BotFather가 발급한 봇 토큰
+- `TELEGRAM_BOT_TOKEN`: BotFather가 발급한 봇 토큰 (없으면 UI에서 등록 시까지 비활성화)
 - `TELEGRAM_CHAT_ID`: 기본 알림 채널/DM. UI에서 다중 타깃을 등록하면 이 값은 초기 대상만 의미합니다.
 - `ALERT_COOLDOWN_MINUTES`, `QUIET_HOURS`: 알림 쿨다운 및 야간 억제 정책(기본 60분, `22-07`)
 
@@ -62,7 +62,7 @@ npm --workspace apps/api run prisma:migrate:deploy
 npm --workspace apps/api run prisma:seed
 ```
 
-- 시드 실행 시 `.env`에 정의된 관리자 계정과 기본 텔레그램 설정이 생성됩니다.
+- 시드 실행 시 `.env`에 정의된 관리자 계정이 생성되며, 텔레그램 토큰이 설정되어 있지 않으면 알림은 비활성화 상태(토큰 없음)로 초기화됩니다. 이후 UI에서 토큰/채널을 등록해 사용할 수 있습니다.
 - 스키마 수정 후에는 반드시 마이그레이션과 시드를 다시 실행하세요.
 
 ## 6. 개발 서버 실행
@@ -97,7 +97,7 @@ cd infra
 docker compose up --build
 ```
 
-- `db`: PostgreSQL 15 (포트 5443 → 컨테이너 5432)
+- `db`: PostgreSQL 16 (포트 5443 → 컨테이너 5432)
 - `api`: NestJS 서버 (`npm run start:dev`, 포트 3000)
 - `web`: Vite 개발 서버 (포트 5173, `VITE_API_BASE_URL` 기본값 `http://api:3000`)
 - `nginx`: reverse proxy (포트 8080 → web/api 라우팅)
@@ -166,3 +166,22 @@ npm test
 - `.env` 파일은 버전 관리에 포함하지 않습니다.
 - 토큰/패스워드 등 민감 정보는 GitHub Secrets 또는 별도 비밀 관리 서비스를 사용하세요.
 - 텔레그램 토큰 교체 시 PR/로그에 노출되지 않도록 주의합니다.
+
+## 11. 검색 CLI 유틸리티
+
+외부 검색이 필요할 때는 루트 환경 변수로 인증 정보를 설정한 뒤 `scripts/search.js`를 실행합니다. 기본적으로 Google Custom Search를 우선 사용하며, Bing Web Search도 지원합니다.
+
+```bash
+# Google Custom Search
+export GOOGLE_CSE_KEY=...
+export GOOGLE_CSE_CX=...
+# Bing Web Search (선택)
+export BING_SEARCH_KEY=...
+
+node scripts/search.js "inventory management best practices"
+node scripts/search.js --engine bing "warehouse audit checklist"
+```
+
+- `SEARCH_ENGINE` 환경 변수를 `google` 또는 `bing`으로 지정하면 기본 엔진을 고정할 수 있습니다.
+- Bing을 사용할 경우 필요에 따라 `BING_SEARCH_ENDPOINT`(기본값 `https://api.bing.microsoft.com/v7.0/search`)와 `BING_SEARCH_MARKET`을 덮어쓸 수 있습니다.
+- 결과는 최대 10건까지 제목, URL, 설명을 터미널에 출력하므로 Codex CLI에서도 그대로 확인 가능합니다.

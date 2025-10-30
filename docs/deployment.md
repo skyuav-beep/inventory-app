@@ -12,7 +12,7 @@
   - 필수 환경 변수
     - `DATABASE_URL` : PostgreSQL 접속 정보 (`postgres://user:pass@host:port/db`)
     - `JWT_SECRET` : JWT 서명 키
-    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` : 텔레그램 알림 설정 (선택)
+    - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` : 텔레그램 알림 설정 (선택, UI에서 등록 가능)
     - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` 등 시드 계정 정보
 - Docker 및 Docker Compose 설치
 - (선택) `npm install` 실행 후 Prisma 마이그레이션 및 시드 스크립트 준비
@@ -25,7 +25,7 @@ docker compose up --build
 ```
 
 - 생성되는 서비스
-  - `inventory-db` : PostgreSQL 15 (`localhost:5443`)
+  - `inventory-db` : PostgreSQL 16 (`localhost:5443`)
   - `inventory-api` : NestJS API (`http://localhost:3000` / Nginx 경유 시 `/api`)
   - `inventory-web` : Vite 개발 서버 (`http://localhost:5173`)
   - `inventory-nginx` : 리버스 프록시 (`http://localhost:8080`)

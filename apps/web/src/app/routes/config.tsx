@@ -6,6 +6,7 @@ import { OutboundsPage } from '../../pages/outbounds/OutboundsPage';
 import { ReturnsPage } from '../../pages/returns/ReturnsPage';
 import { UploadsPage } from '../../pages/uploads/UploadsPage';
 import { SettingsPage } from '../../pages/settings/SettingsPage';
+import { LogsPage } from '../../pages/logs/LogsPage';
 import { LoginPage } from '../../pages/auth/LoginPage';
 
 export const appRoutes: AppRoute[] = [
@@ -99,6 +100,18 @@ export const appRoutes: AppRoute[] = [
       label: '환경설정',
       description: '알림 및 사용자 설정을 관리합니다.',
       icon: '⚙️',
+      navigation: true,
+      requiresAuth: true,
+      resource: 'settings',
+    },
+  },
+  {
+    path: '/logs',
+    element: <LogsPage />,
+    meta: {
+      label: 'LOG',
+      description: '감사 로그와 주요 작업 이력을 확인합니다.',
+      icon: '🧾',
       navigation: true,
       requiresAuth: true,
       resource: 'settings',

@@ -102,3 +102,9 @@ export async function updateProduct(
     body: JSON.stringify(payload),
   });
 }
+
+export async function deleteProduct(id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/v1/products/${id}`, {
+    method: 'DELETE',
+  });
+}

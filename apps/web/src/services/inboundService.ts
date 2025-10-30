@@ -33,6 +33,13 @@ export interface CreateInboundPayload {
   note?: string;
 }
 
+export interface UpdateInboundPayload {
+  productId?: string;
+  quantity?: number;
+  dateIn?: string;
+  note?: string;
+}
+
 export async function fetchInbounds(
   params: FetchInboundsParams = {},
 ): Promise<InboundListResponse> {
@@ -58,5 +65,21 @@ export async function createInbound(payload: CreateInboundPayload): Promise<Inbo
   return apiFetch<InboundListItem>('/api/v1/inbounds', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function updateInbound(
+  id: string,
+  payload: UpdateInboundPayload,
+): Promise<InboundListItem> {
+  return apiFetch<InboundListItem>(`/api/v1/inbounds/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteInbound(id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/v1/inbounds/${id}`, {
+    method: 'DELETE',
   });
 }

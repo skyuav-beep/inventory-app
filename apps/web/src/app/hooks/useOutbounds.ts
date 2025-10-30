@@ -24,6 +24,8 @@ interface UseOutboundsState {
   refresh: () => void;
   summary: {
     totalQuantity: number;
+    totalReturnedQuantity: number;
+    totalReturnableQuantity: number;
     uniqueProducts: number;
   };
 }
@@ -82,13 +84,14 @@ export function useOutbounds(
       return (
         item.productName.toLowerCase().includes(keyword) ||
         item.productCode.toLowerCase().includes(keyword) ||
-        item.ordererId?.toLowerCase().includes(keyword) ||
         item.ordererName?.toLowerCase().includes(keyword) ||
         item.recipientName?.toLowerCase().includes(keyword) ||
         item.recipientPhone?.toLowerCase().includes(keyword) ||
         item.invoiceNumber?.toLowerCase().includes(keyword) ||
-        item.customsNumber?.toLowerCase().includes(keyword) ||
-        item.note?.toLowerCase().includes(keyword)
+        item.freightType?.toLowerCase().includes(keyword) ||
+        item.paymentCondition?.toLowerCase().includes(keyword) ||
+        item.specialNote?.toLowerCase().includes(keyword) ||
+        item.memo?.toLowerCase().includes(keyword)
       );
     });
 
@@ -108,11 +111,30 @@ export function useOutbounds(
   }, []);
 
   const summary = useMemo(() => {
-    const totalQuantity = items.reduce((acc, item) => acc + item.quantity, 0);
-    const uniqueProductIds = new Set(items.map((item) => item.productId));
+    let totalQuantity = 0;
+    let totalReturnedQuantity = 0;
+    let totalReturnableQuantity = 0;
+    const uniqueProductIds = new Set<string>();
+
+    items.forEach((item) => {
+      totalQuantity += item.quantity;
+      uniqueProductIds.add(item.productId);
+
+      const returned = Number.isFinite(item.returnedQuantity)
+        ? Math.max(0, item.returnedQuantity)
+        : 0;
+      const remaining = Number.isFinite(item.returnableQuantity)
+        ? Math.max(0, item.returnableQuantity)
+        : Math.max(0, item.quantity - returned);
+
+      totalReturnedQuantity += returned;
+      totalReturnableQuantity += remaining;
+    });
 
     return {
       totalQuantity,
+      totalReturnedQuantity,
+      totalReturnableQuantity,
       uniqueProducts: uniqueProductIds.size,
     };
   }, [items]);

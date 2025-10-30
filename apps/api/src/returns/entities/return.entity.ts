@@ -11,7 +11,6 @@ export interface ReturnEntity {
   dateReturn: Date;
   outboundId?: string;
   dateOut?: Date;
-  ordererId?: string;
   ordererName?: string;
   createdAt: Date;
 }
@@ -30,7 +29,6 @@ export function toReturnEntity(
     dateReturn: record.dateReturn,
     outboundId: record.outboundId ?? undefined,
     dateOut: record.outbound?.dateOut,
-    ordererId: record.outbound?.ordererId ?? undefined,
     ordererName: record.outbound?.ordererName ?? undefined,
     createdAt: record.createdAt,
   };

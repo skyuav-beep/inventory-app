@@ -1,4 +1,4 @@
-import { PrismaClient, Resource, Role } from '@prisma/client';
+import { Prisma, PrismaClient, Resource, Role } from '@prisma/client';
 import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -8,6 +8,9 @@ async function main() {
   const adminName = process.env.ADMIN_SEED_NAME ?? 'Admin';
   const adminPassword = process.env.ADMIN_SEED_PASSWORD ?? 'ChangeMe123!';
   const adminPasswordHash = await hash(adminPassword, 12);
+  const rawTelegramToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const telegramBotToken =
+    rawTelegramToken && rawTelegramToken.length > 0 ? rawTelegramToken : null;
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
@@ -48,17 +51,21 @@ async function main() {
     },
   });
 
+  const notificationUpdateData: Prisma.NotificationSettingUpdateInput = {};
+  if (telegramBotToken) {
+    notificationUpdateData.telegramBotToken = telegramBotToken;
+    notificationUpdateData.telegramEnabled = true;
+  }
+
   await prisma.notificationSetting.upsert({
     where: { id: 'default-notification-setting' },
-    update: {
-      telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? null,
-    },
+    update: notificationUpdateData,
     create: {
       id: 'default-notification-setting',
-      telegramEnabled: true,
+      telegramEnabled: telegramBotToken !== null,
       telegramCooldownMin: 60,
       telegramQuietHours: '22-07',
-      telegramBotToken: process.env.TELEGRAM_BOT_TOKEN ?? null,
+      telegramBotToken: telegramBotToken,
       createdBy: { connect: { id: admin.id } },
       telegramTargets: {
         create: [

@@ -79,3 +79,9 @@ export async function updateUser(id: string, payload: UpdateUserPayload): Promis
     body: JSON.stringify(payload),
   });
 }
+
+export async function deleteUser(id: string): Promise<{ success: boolean }> {
+  return apiFetch<{ success: boolean }>(`/api/v1/users/${id}`, {
+    method: 'DELETE',
+  });
+}

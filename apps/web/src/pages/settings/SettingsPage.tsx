@@ -11,6 +11,7 @@ import {
   fetchPermissionTemplates,
   createUser,
   updateUser,
+  deleteUser,
   PermissionDefinition,
   Role,
   UserListItem,
@@ -27,6 +28,48 @@ const logError = (err: unknown) => {
     console.error(new Error(String(err)));
   }
 };
+
+const hasMessageField = (value: unknown): value is { message?: unknown } =>
+  typeof value === 'object' && value !== null && 'message' in value;
+
+function resolveApiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    const raw = error.message.trim();
+    if (!raw) {
+      return fallback;
+    }
+
+    try {
+      const parsedUnknown = JSON.parse(raw) as unknown;
+
+      if (hasMessageField(parsedUnknown)) {
+        const messageValue = parsedUnknown.message;
+
+        if (typeof messageValue === 'string' && messageValue.trim().length > 0) {
+          return messageValue;
+        }
+
+        if (Array.isArray(messageValue)) {
+          for (const item of messageValue as unknown[]) {
+            if (typeof item === 'string' && item.trim().length > 0) {
+              return item;
+            }
+          }
+        }
+      }
+    } catch {
+      if (raw.length > 0) {
+        return raw;
+      }
+    }
+
+    if (raw.length > 0) {
+      return raw;
+    }
+  }
+
+  return fallback;
+}
 
 interface TargetFormState {
   key: string;
@@ -167,7 +210,7 @@ function buildPolicyFeedback(decision: AlertTestResponse['decision']): string {
 }
 
 export function SettingsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user: currentUser } = useAuth();
   const [form, setForm] = useState<TelegramFormState>({
     enabled: false,
     botToken: '',
@@ -207,6 +250,7 @@ export function SettingsPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [userFormSubmitting, setUserFormSubmitting] = useState(false);
   const [userFormError, setUserFormError] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const resourceKeys = useMemo(() => Object.keys(RESOURCE_LABELS), []);
   const [permissionTemplates, setPermissionTemplates] = useState<PermissionTemplates | null>(null);
   const [permissionTemplatesLoading, setPermissionTemplatesLoading] = useState(false);
@@ -355,6 +399,40 @@ export function SettingsPage() {
     setUserModalMode('edit');
     setEditingUserId(userItem.id);
     setUserModalOpen(true);
+  };
+
+  const handleDeleteUser = async (userItem: UserListItem) => {
+    if (!canManageUsers || deletingUserId === userItem.id) {
+      return;
+    }
+
+    if (currentUser?.userId === userItem.id) {
+      setUserError('본인 계정은 삭제할 수 없습니다.');
+      setUserSuccess(null);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `사용자 "${userItem.name}"(${userItem.email})을(를) 삭제하시겠습니까? 삭제 후에는 다시 초대해야 합니다.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingUserId(userItem.id);
+      setUserError(null);
+      setUserSuccess(null);
+      await deleteUser(userItem.id);
+      setUserSuccess(`사용자 "${userItem.name}"을(를) 삭제했습니다.`);
+      refreshUsers();
+    } catch (error) {
+      logError(error);
+      setUserError(error instanceof Error ? error.message : '사용자 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
   const handleCloseUserModal = () => {
@@ -567,7 +645,10 @@ export function SettingsPage() {
       logError(error);
       setTestFeedback({
         variant: 'error',
-        message: '테스트 알림을 요청하지 못했습니다. 봇 토큰과 네트워크 상태를 확인하세요.',
+        message: resolveApiErrorMessage(
+          error,
+          '테스트 알림을 요청하지 못했습니다. 봇 토큰과 네트워크 상태를 확인하세요.',
+        ),
       });
     } finally {
       setTesting(false);
@@ -603,7 +684,10 @@ export function SettingsPage() {
       logError(error);
       setCustomFeedback({
         variant: 'error',
-        message: '메시지를 전송하지 못했습니다. 설정을 확인한 뒤 다시 시도해 주세요.',
+        message: resolveApiErrorMessage(
+          error,
+          '메시지를 전송하지 못했습니다. 설정을 확인한 뒤 다시 시도해 주세요.',
+        ),
       });
     } finally {
       setSendingCustom(false);
@@ -937,6 +1021,14 @@ export function SettingsPage() {
                               onClick={() => openEditUserModal(userItem)}
                             >
                               권한 수정
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.userActionDanger}
+                              onClick={() => handleDeleteUser(userItem)}
+                              disabled={deletingUserId === userItem.id}
+                            >
+                              {deletingUserId === userItem.id ? '삭제 중...' : '삭제'}
                             </button>
                           </div>
                         </td>

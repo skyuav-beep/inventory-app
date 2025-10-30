@@ -18,3 +18,17 @@ coverage/
 *.sqlite
 /.turbo/
 backups/
+
+# SSL
+gh_actions
+gh_actions.pub
+gha_deploy_key
+gha_deploy_key.pub
+
+# SSH keys and authorized key bundles
+~deploy/
+**/.ssh/
+*.pem
+*.key
+*.pub
+authorized_keys

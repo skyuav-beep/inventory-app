@@ -64,6 +64,9 @@ describe('LoginPage', () => {
 
     render(<LoginPage />);
 
+    await userEvent.type(screen.getByLabelText('이메일'), 'admin@example.com');
+    await userEvent.type(screen.getByLabelText('비밀번호'), 'ChangeMe123!');
+
     const submitButton = screen.getByRole('button', { name: '로그인' });
     await userEvent.click(submitButton);
 
@@ -88,6 +91,9 @@ describe('LoginPage', () => {
     loginRequestMock.mockRejectedValue(new Error('Invalid credentials'));
 
     render(<LoginPage />);
+
+    await userEvent.type(screen.getByLabelText('이메일'), 'admin@example.com');
+    await userEvent.type(screen.getByLabelText('비밀번호'), 'wrong-password');
 
     const submitButton = screen.getByRole('button', { name: '로그인' });
     await userEvent.click(submitButton);

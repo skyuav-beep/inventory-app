@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-interface HealthStatus {
+export interface HealthStatus {
   status: 'ok' | 'degraded';
   timestamp: string;
   services: {

@@ -48,7 +48,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/inventory_test
       E2E_USE_REAL_DB: true
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || 'test-token' }}
 
     steps:
       - name: Checkout repository

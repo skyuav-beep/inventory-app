@@ -110,17 +110,18 @@ export class UploadQueueService {
           await this.outboundsService.create({
             productId: product.id,
             quantity: row.quantity,
-            dateOut: row.shipDate ?? row.date,
-            note: row.note,
-            orderDate: row.orderDate,
-            ordererId: row.ordererId ?? undefined,
+            dateOut: row.date,
+            memo: row.memo ?? row.note ?? undefined,
+            specialNote: row.specialNote ?? undefined,
+            freightType: row.freightType ?? undefined,
+            paymentCondition: row.paymentCondition ?? undefined,
             ordererName: row.ordererName ?? undefined,
             recipientName: row.recipientName ?? undefined,
             recipientPhone: row.recipientPhone ?? undefined,
             recipientAddress: row.recipientAddress ?? undefined,
             recipientPostalCode: row.recipientPostalCode ?? undefined,
-            customsNumber: row.customsNumber ?? undefined,
             invoiceNumber: row.invoiceNumber ?? undefined,
+            status: row.status ?? undefined,
           });
         }
 
@@ -147,18 +148,20 @@ export class UploadQueueService {
       quantity: row.quantity,
       date: row.date.toISOString(),
       shipDate: row.shipDate ? row.shipDate.toISOString() : null,
-      orderDate: row.orderDate ? row.orderDate.toISOString() : null,
       note: row.note ?? null,
       productName: row.productName ?? null,
       unit: row.unit ?? null,
-      ordererId: row.ordererId ?? null,
       ordererName: row.ordererName ?? null,
       recipientName: row.recipientName ?? null,
       recipientPhone: row.recipientPhone ?? null,
       recipientAddress: row.recipientAddress ?? null,
       recipientPostalCode: row.recipientPostalCode ?? null,
-      customsNumber: row.customsNumber ?? null,
       invoiceNumber: row.invoiceNumber ?? null,
+      freightType: row.freightType ?? null,
+      paymentCondition: row.paymentCondition ?? null,
+      specialNote: row.specialNote ?? null,
+      memo: row.memo ?? null,
+      status: row.status ?? null,
     };
   }
 }

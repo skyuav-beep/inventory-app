@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuditAction, Prisma, Resource, Role } from '@prisma/client';
 import { hash } from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -190,6 +195,40 @@ export class UsersService {
       });
 
       return entity;
+    });
+  }
+
+  async disableUser(id: string, context?: AuditContext): Promise<void> {
+    if (context?.actor?.userId === id) {
+      throw new BadRequestException('본인 계정은 삭제할 수 없습니다.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({
+        where: { id },
+      });
+
+      if (!existing || existing.disabled) {
+        throw new NotFoundException('사용자를 찾을 수 없습니다.');
+      }
+
+      await tx.user.update({
+        where: { id },
+        data: { disabled: true },
+      });
+
+      await this.auditService.record({
+        userId: context?.actor?.userId,
+        resource: Resource.settings,
+        action: AuditAction.delete,
+        entityId: existing.id,
+        payload: this.toJsonValue({
+          email: existing.email,
+          role: existing.role,
+        }),
+        ipAddress: context?.ip,
+        userAgent: context?.userAgent,
+      });
     });
   }
 

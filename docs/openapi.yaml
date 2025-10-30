@@ -540,7 +540,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Outbound'
+              allOf:
+                - $ref: '#/components/schemas/OutboundWriteInput'
+                - type: object
+                  required: [productId, quantity]
       responses:
         '201':
           description: 출고 등록 완료
@@ -579,18 +582,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                productId:
-                  type: string
-                quantity:
-                  type: integer
-                  minimum: 1
-                dateOut:
-                  type: string
-                  format: date
-                note:
-                  type: string
+              $ref: '#/components/schemas/OutboundWriteInput'
       responses:
         '200':
           description: 출고 수정 완료
@@ -1219,16 +1211,99 @@ components:
           type: string
         productId:
           type: string
+        productCode:
+          type: string
+        productName:
+          type: string
+        productUnit:
+          type: string
         quantity:
           type: integer
           minimum: 1
         dateOut:
           type: string
-          format: date
-        note:
+          format: date-time
+          description: 출고 등록 시각 (생성 시각과 동일)
+        status:
+          type: string
+          enum: [shipped, in_transit, delivered, returned]
+          default: shipped
+        ordererName:
           type: string
           nullable: true
-      required: [productId, quantity, dateOut]
+        recipientName:
+          type: string
+          nullable: true
+        recipientPhone:
+          type: string
+          nullable: true
+        recipientAddress:
+          type: string
+          nullable: true
+        recipientPostalCode:
+          type: string
+          nullable: true
+        invoiceNumber:
+          type: string
+          nullable: true
+        freightType:
+          type: string
+          nullable: true
+        paymentCondition:
+          type: string
+          nullable: true
+        specialNote:
+          type: string
+          nullable: true
+        memo:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        [id, productId, productCode, productName, productUnit, quantity, dateOut, status, createdAt]
+    OutboundWriteInput:
+      type: object
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [shipped, in_transit, delivered, returned]
+        ordererName:
+          type: string
+          nullable: true
+        recipientName:
+          type: string
+          nullable: true
+        recipientPhone:
+          type: string
+          nullable: true
+        recipientAddress:
+          type: string
+          nullable: true
+        recipientPostalCode:
+          type: string
+          nullable: true
+        invoiceNumber:
+          type: string
+          nullable: true
+        freightType:
+          type: string
+          nullable: true
+        paymentCondition:
+          type: string
+          nullable: true
+        specialNote:
+          type: string
+          nullable: true
+        memo:
+          type: string
+          nullable: true
     Return:
       type: object
       properties:
@@ -1256,9 +1331,6 @@ components:
           type: string
           enum: [pending, completed]
           default: pending
-        ordererId:
-          type: string
-          nullable: true
         ordererName:
           type: string
           nullable: true

@@ -1,7 +1,33 @@
 import { ProductStatus } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, TransformFnParams, Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+
+const transformOptionalBoolean = ({ value }: TransformFnParams) => {
+  const rawValue: unknown = value;
+
+  if (rawValue === undefined || rawValue === null || rawValue === '') {
+    return undefined;
+  }
+
+  if (typeof rawValue === 'boolean') {
+    return rawValue;
+  }
+
+  if (typeof rawValue === 'string') {
+    const normalized = rawValue.trim().toLowerCase();
+
+    if (normalized === 'true') {
+      return true;
+    }
+
+    if (normalized === 'false') {
+      return false;
+    }
+  }
+
+  return undefined;
+};
 
 export class ProductListQueryDto extends PaginationQueryDto {
   @IsOptional()
@@ -15,12 +41,12 @@ export class ProductListQueryDto extends PaginationQueryDto {
   status?: ProductStatus;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(transformOptionalBoolean)
   @IsBoolean()
   disabled?: boolean;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(transformOptionalBoolean)
   @IsBoolean()
   includeDisabled?: boolean;
 }

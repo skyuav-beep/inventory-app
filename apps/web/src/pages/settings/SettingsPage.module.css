@@ -335,6 +335,29 @@
   transform: none;
 }
 
+.userActionDanger {
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  background: rgba(248, 113, 113, 0.15);
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.userActionDanger:hover {
+  background: rgba(248, 113, 113, 0.22);
+  transform: translateY(-1px);
+}
+
+.userActionDanger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .chip,
 .chipAccent {
   padding: 4px 10px;

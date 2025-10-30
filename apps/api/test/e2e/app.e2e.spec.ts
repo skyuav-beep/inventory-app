@@ -170,7 +170,7 @@ class InMemoryPrismaService {
       id: 'default-notification-setting',
       telegramEnabled: true,
       telegramCooldownMin: 60,
-      telegramQuietHours: '22-07',
+      telegramQuietHours: '23-23',
       telegramBotToken: 'test-token',
       createdById: userId,
       createdAt: new Date(),
@@ -868,7 +868,7 @@ class InMemoryPrismaService {
           const now = new Date();
           this.notificationSettingRecord = {
             id: data.id ?? randomUUID(),
-            telegramEnabled: data.telegramEnabled ?? true,
+            telegramEnabled: data.telegramEnabled ?? false,
             telegramCooldownMin: data.telegramCooldownMin ?? 60,
             telegramQuietHours: data.telegramQuietHours ?? '22-07',
             telegramBotToken: data.telegramBotToken ?? null,
@@ -895,7 +895,7 @@ class InMemoryPrismaService {
         const now = new Date();
         this.notificationSettingRecord = {
           id: create.id ?? randomUUID(),
-          telegramEnabled: create.telegramEnabled ?? true,
+          telegramEnabled: create.telegramEnabled ?? false,
           telegramCooldownMin: create.telegramCooldownMin ?? 60,
           telegramQuietHours: create.telegramQuietHours ?? '22-07',
           telegramBotToken: create.telegramBotToken ?? null,
@@ -1460,7 +1460,11 @@ describe('AppModule e2e', () => {
         .send({
           productId,
           quantity: 5,
-          note: '출고 테스트',
+          memo: '출고 테스트',
+          freightType: '선불',
+          paymentCondition: '후불',
+          ordererName: '주문자A',
+          recipientName: '수령자A',
         })
         .expect(201);
 
@@ -1755,11 +1759,16 @@ describe('AppModule e2e', () => {
 
       telegramStub.sentMessages = [];
 
+      const padHour = (value: number) => value.toString().padStart(2, '0');
+      const currentHour = new Date().getHours();
+      const nextHour = (currentHour + 1) % 24;
+      const quietWindow = `${padHour(currentHour)}-${padHour(nextHour)}`;
+
       const updateQuietHoursPayload = {
         enabled: true,
         botToken: 'test-token',
         cooldownMinutes: 1,
-        quietHours: '00-23',
+        quietHours: quietWindow,
         targets: [
           {
             chatId: '123456',
@@ -1913,7 +1922,7 @@ async function seedRealDatabase(prisma: PrismaService) {
       id: 'default-notification-setting',
       telegramEnabled: true,
       telegramCooldownMin: 60,
-      telegramQuietHours: '22-07',
+      telegramQuietHours: '23-23',
       telegramBotToken: 'test-token',
       createdById: admin.id,
     },

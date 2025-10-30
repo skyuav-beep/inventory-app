@@ -5,6 +5,7 @@ import { ProductsPage } from './ProductsPage';
 import { useProducts } from '../../app/hooks/useProducts';
 import { useAuth } from '../../hooks/useAuth';
 import { updateProduct } from '../../services/productService';
+import { downloadExcel } from '../../lib/downloadExcel';
 
 vi.mock('../../app/hooks/useProducts', () => ({
   useProducts: vi.fn(),
@@ -19,9 +20,14 @@ vi.mock('../../services/productService', () => ({
   updateProduct: vi.fn(),
 }));
 
+vi.mock('../../lib/downloadExcel', () => ({
+  downloadExcel: vi.fn(),
+}));
+
 const useProductsMock = vi.mocked(useProducts);
 const useAuthMock = vi.mocked(useAuth);
 const updateProductMock = vi.mocked(updateProduct);
+const downloadExcelMock = vi.mocked(downloadExcel);
 
 type ProductsState = ReturnType<typeof useProducts>;
 type AuthContextValue = ReturnType<typeof useAuth>;
@@ -79,6 +85,7 @@ describe('ProductsPage', () => {
     useProductsMock.mockReset();
     useAuthMock.mockReset();
     updateProductMock.mockReset();
+    downloadExcelMock.mockReset();
   });
 
   it('제품 목록을 렌더링하고 관리 권한이 있으면 버튼을 활성화한다', async () => {
@@ -96,6 +103,7 @@ describe('ProductsPage', () => {
     const user = userEvent.setup();
     const registerButton = screen.getByRole('button', { name: '제품 등록' });
     expect(registerButton).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: '엑셀 다운로드' })).toBeEnabled();
     const summaryCard = screen.getByText('현재 페이지 제품 수').closest('article');
     expect(summaryCard).not.toBeNull();
     expect(summaryCard).toHaveTextContent('1 개');
@@ -108,7 +116,7 @@ describe('ProductsPage', () => {
     expect(searchInput.value).toBe('');
   });
 
-  it('관리 권한이 없으면 등록 버튼만 비활성화하고 템플릿은 다운로드할 수 있다', () => {
+  it('관리 권한이 없으면 등록 버튼이 비활성화되고 다운로드 동작이 노출되지 않는다', () => {
     const state = createProductsState();
     useProductsMock.mockReturnValue(state);
     useAuthMock.mockReturnValue(createAuthValue(false));
@@ -116,7 +124,46 @@ describe('ProductsPage', () => {
     render(<ProductsPage />);
 
     expect(screen.getByRole('button', { name: '제품 등록' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '템플릿 다운로드' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '엑셀 다운로드' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '템플릿 다운로드' })).toBeNull();
+    const row = screen.getByText('테스트 제품').closest('tr');
+    expect(row).not.toBeNull();
+    expect(
+      within(row as HTMLTableRowElement).queryByRole('button', { name: '다운로드' }),
+    ).toBeNull();
+  });
+
+  it('엑셀 다운로드 버튼을 클릭하면 목록을 내보낸다', async () => {
+    const state = createProductsState();
+    useProductsMock.mockReturnValue(state);
+    useAuthMock.mockReturnValue(createAuthValue(true));
+
+    const user = userEvent.setup();
+    render(<ProductsPage />);
+
+    const excelButton = screen.getByRole('button', { name: '엑셀 다운로드' });
+    await user.click(excelButton);
+
+    expect(downloadExcelMock).toHaveBeenCalledTimes(1);
+    const [filename, headers, rows] = downloadExcelMock.mock.calls[0];
+    expect(filename).toMatch(/^products_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(headers).toEqual([
+      '제품코드',
+      '제품명',
+      '설명',
+      '규격',
+      '단위',
+      '안전재고',
+      '현재 재고',
+      '총 입고',
+      '총 출고',
+      '총 반품',
+      '상태',
+      '사용 여부',
+    ]);
+    expect(rows).toEqual([
+      ['SKU-001', '테스트 제품', '설명', '10x20', 'EA', 10, 8, 120, 112, 4, '주의', '사용 중'],
+    ]);
   });
 
   it('사용 상태 필터를 변경할 수 있다', async () => {

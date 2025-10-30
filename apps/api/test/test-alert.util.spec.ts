@@ -1,12 +1,9 @@
 import { buildTestAlertMessage } from '../src/alerts/utils/test-alert.util';
 
 describe('buildTestAlertMessage', () => {
-  it('should include requester name and timestamp', () => {
+  it('고정된 텔레그램 테스트 메시지를 반환한다', () => {
     const message = buildTestAlertMessage('Tester');
 
-    expect(message).toContain('Tester');
-    expect(message.startsWith('[TEST]')).toBe(true);
-    expect(message).toContain('requested by');
-    expect(message).toContain('at');
+    expect(message).toBe('안녕하세요 르메뜨리입니다');
   });
 });

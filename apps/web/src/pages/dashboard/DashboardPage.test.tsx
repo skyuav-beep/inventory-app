@@ -1,14 +1,18 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardPage } from './DashboardPage';
-import { fetchDashboardSummary, fetchAlertLogs } from '../../services/dashboardService';
+import {
+  fetchDashboardSummary,
+  fetchAlertLogs,
+  type DashboardSummaryResponse,
+} from '../../services/dashboardService';
 
 vi.mock('../../services/dashboardService', () => ({
   fetchDashboardSummary: vi.fn(),
   fetchAlertLogs: vi.fn(),
 }));
 
-const mockSummary = {
+const mockSummary: DashboardSummaryResponse = {
   totals: {
     totalProducts: 12,
     totalIn: 480,
