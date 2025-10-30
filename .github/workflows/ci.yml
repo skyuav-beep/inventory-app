@@ -62,6 +62,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Wait for PostgreSQL service
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -U postgres && break
+            sleep 1
+          done
+
       - name: Create test database
         env:
           PGPASSWORD: postgres
