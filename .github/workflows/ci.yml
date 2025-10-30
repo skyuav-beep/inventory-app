@@ -72,3 +72,35 @@ jobs:
 
       - name: Run API tests (unit + e2e)
         run: npm --workspace apps/api test
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: test-api
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Add remote host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H skyuav02.cafe24.com 218.38.52.136 >> ~/.ssh/known_hosts
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: 218.38.52.136
+          username: steve
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            set -euo pipefail
+            cd /home/steve/inventory-app
+            git pull
+            cd infra
+            docker compose pull
+            docker compose up -d
+            cd ..
+            npm install
+            npm run build
+            pm2 restart api
