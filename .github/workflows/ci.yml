@@ -88,6 +88,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create deployment .env
+        run: |
+          cat <<'EOF' > .env
+          DATABASE_URL=${{ secrets.DEPLOY_DATABASE_URL }}
+          JWT_SECRET=${{ secrets.DEPLOY_JWT_SECRET }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.DEPLOY_TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.DEPLOY_TELEGRAM_CHAT_ID }}
+          ADMIN_SEED_EMAIL=${{ secrets.DEPLOY_ADMIN_EMAIL }}
+          ADMIN_SEED_NAME=${{ secrets.DEPLOY_ADMIN_NAME }}
+          ADMIN_SEED_PASSWORD=${{ secrets.DEPLOY_ADMIN_PASSWORD }}
+          THROTTLE_DEFAULT_TTL=${{ secrets.DEPLOY_THROTTLE_DEFAULT_TTL }}
+          THROTTLE_DEFAULT_LIMIT=${{ secrets.DEPLOY_THROTTLE_DEFAULT_LIMIT }}
+          EOF
+          chmod 600 .env
+
       - name: Prepare SSH
         run: |
           set -euo pipefail
