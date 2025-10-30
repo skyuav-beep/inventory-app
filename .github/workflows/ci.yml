@@ -73,7 +73,9 @@ jobs:
       - name: Create test database
         env:
           PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -c "CREATE DATABASE inventory_test;"
+        run: |
+          psql -h localhost -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'inventory_test'" | grep -q 1 || \
+          psql -h localhost -U postgres -c "CREATE DATABASE inventory_test;"
 
       - name: Run Prisma migrations
         run: npm --workspace apps/api run prisma:migrate:deploy
