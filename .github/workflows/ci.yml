@@ -88,6 +88,9 @@ jobs:
         run: |
           CONTAINER_ID=$(docker ps --filter "name=postgres" -q)
           if [ -z "$CONTAINER_ID" ]; then
+            CONTAINER_ID=$(docker ps --filter "name=inventory-db" -q)
+          fi
+          if [ -z "$CONTAINER_ID" ]; then
             echo "PostgreSQL container not found"
           else
             docker logs "$CONTAINER_ID"
