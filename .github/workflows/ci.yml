@@ -85,7 +85,7 @@ jobs:
       - name: Add remote host to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H skyuav02.cafe24.com 218.38.52.136 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 218.38.52.136 >> ~/.ssh/known_hosts
 
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.0.0
@@ -93,6 +93,7 @@ jobs:
           host: 218.38.52.136
           username: steve
           key: ${{ secrets.DEPLOY_KEY }}
+          key_type: ed25519
           script: |
             set -euo pipefail
             cd /home/steve/inventory-app
