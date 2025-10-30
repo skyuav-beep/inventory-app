@@ -129,6 +129,7 @@ jobs:
           ssh -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" "
             set -euo pipefail
             cd '$DEPLOY_PATH'
+            docker compose -f infra/docker-compose.yml down --remove-orphans || true
             docker compose -f infra/docker-compose.yml pull || true
             docker compose -f infra/docker-compose.yml up -d --build
             docker compose -f infra/docker-compose.yml ps
