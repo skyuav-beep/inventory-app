@@ -39,7 +39,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: inventory_test
         ports:
-          - 5432/tcp
+          - 55432:5432
         options: >-
           --health-cmd="pg_isready -U postgres -d inventory_test"
           --health-interval=10s
@@ -48,12 +48,12 @@ jobs:
 
     env:
       POSTGRES_HOST: localhost
-      POSTGRES_PORT: ${{ job.services.inventory-db.ports['5432'] }}
+      POSTGRES_PORT: 55432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: inventory_test
       PGPASSWORD: postgres
-      DATABASE_URL: postgresql://postgres:postgres@localhost:${{ job.services.inventory-db.ports['5432'] }}/inventory_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:55432/inventory_test
       E2E_USE_REAL_DB: true
 
     steps:
