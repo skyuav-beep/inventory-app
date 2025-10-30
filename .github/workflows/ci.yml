@@ -38,6 +38,8 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: inventory_test
+        ports:
+          - 55432:5432
         options: >-
           --health-cmd "pg_isready -h localhost -U postgres"
           --health-interval 5s
@@ -45,7 +47,7 @@ jobs:
           --health-retries 30
 
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/inventory_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:55432/inventory_test
       E2E_USE_REAL_DB: true
 
     steps:
@@ -64,7 +66,7 @@ jobs:
       - name: Wait for PostgreSQL service
         run: |
           for i in {1..30}; do
-            pg_isready -h localhost -U postgres && break
+            pg_isready -h localhost -p 55432 -U postgres && break
             sleep 1
           done
 
@@ -72,8 +74,8 @@ jobs:
         env:
           PGPASSWORD: postgres
         run: |
-          psql -h localhost -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'inventory_test'" | grep -q 1 || \
-          psql -h localhost -U postgres -c "CREATE DATABASE inventory_test;"
+          psql -h localhost -p 55432 -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'inventory_test'" | grep -q 1 || \
+          psql -h localhost -p 55432 -U postgres -c "CREATE DATABASE inventory_test;"
 
       - name: Run Prisma migrations
         run: npm --workspace apps/api run prisma:migrate:deploy
