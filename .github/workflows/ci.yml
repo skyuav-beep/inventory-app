@@ -170,8 +170,15 @@ jobs:
             cd '$DEPLOY_PATH'
             docker compose -f infra/docker-compose.yml down --remove-orphans || true
             docker compose -f infra/docker-compose.yml pull || true
-            docker compose -f infra/docker-compose.yml up -d --build
+            if ! docker compose -f infra/docker-compose.yml up -d --build; then
+              echo 'docker compose up failed, showing recent logs...'
+              docker compose -f infra/docker-compose.yml logs --tail=200 db || true
+              docker compose -f infra/docker-compose.yml logs --tail=200 api || true
+              exit 1
+            fi
             docker compose -f infra/docker-compose.yml ps
+            docker compose -f infra/docker-compose.yml logs --tail=200 db || true
+            docker compose -f infra/docker-compose.yml logs --tail=200 api || true
           "
 
       - name: Prisma migrate & seed
