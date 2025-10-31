@@ -181,29 +181,29 @@ jobs:
               CURRENT_MAJOR=\${CURRENT_VERSION%%.*}
               if [ \"\$CURRENT_MAJOR\" = \"15\" ]; then
                 echo \"Upgrading Postgres data volume to 16...\"
-                docker pull tianon/pg_upgrade:15-to-16 || true
+                docker pull tianon/postgres-upgrade:15-to-16 || true
                 docker volume rm \"\$TEMP_VOLUME\" >/dev/null 2>&1 || true
                 docker volume create \"\$TEMP_VOLUME\" >/dev/null
                 docker run --rm \\
                   -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/15/data \\
                   -v \"\$TEMP_VOLUME\":/var/lib/postgresql/16/data \\
-                  tianon/pg_upgrade:15-to-16
+                  tianon/postgres-upgrade:15-to-16
                 docker run --rm \\
                   -v \"\$TEMP_VOLUME\":/var/lib/postgresql/16/data \\
-                  postgres:16-alpine sh -c 'set -eu; chown -R postgres:postgres /var/lib/postgresql/16/data'
+                  postgres:16 sh -c 'set -eu; chown -R postgres:postgres /var/lib/postgresql/16/data'
                 docker run --rm \\
                   -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/old \\
-                  postgres:16-alpine sh -c 'set -eu; cd /var/lib/postgresql/old; rm -f pg15_backup_before_pg16.tar; tar -cf pg15_backup_before_pg16.tar .; rm -rf ./* ./.??*'
+                  postgres:16 sh -c 'set -eu; cd /var/lib/postgresql/old; rm -f pg15_backup_before_pg16.tar; tar -cf pg15_backup_before_pg16.tar .; rm -rf ./* ./.??*'
                 docker run --rm \\
                   -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/old \\
                   -v \"\$TEMP_VOLUME\":/var/lib/postgresql/new \\
-                  postgres:16-alpine sh -c 'set -eu; tar -C /var/lib/postgresql/new -cf - . | tar -C /var/lib/postgresql/old -xf -'
+                  postgres:16 sh -c 'set -eu; tar -C /var/lib/postgresql/new -cf - . | tar -C /var/lib/postgresql/old -xf -'
                 docker run --rm \\
                   -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/old \\
-                  postgres:16-alpine sh -c 'set -eu; rm -f /var/lib/postgresql/old/pg15_backup_before_pg16.tar'
+                  postgres:16 sh -c 'set -eu; rm -f /var/lib/postgresql/old/pg15_backup_before_pg16.tar'
                 docker run --rm \\
                   -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/data \\
-                  postgres:16-alpine sh -c 'set -eu; if [ -f /var/lib/postgresql/data/analyze_new_cluster.sh ]; then chmod +x /var/lib/postgresql/data/analyze_new_cluster.sh; gosu postgres /var/lib/postgresql/data/analyze_new_cluster.sh; rm -f /var/lib/postgresql/data/analyze_new_cluster.sh /var/lib/postgresql/data/delete_old_cluster.sh; fi'
+                  postgres:16 sh -c 'set -eu; if [ -f /var/lib/postgresql/data/analyze_new_cluster.sh ]; then chmod +x /var/lib/postgresql/data/analyze_new_cluster.sh; gosu postgres /var/lib/postgresql/data/analyze_new_cluster.sh; rm -f /var/lib/postgresql/data/analyze_new_cluster.sh /var/lib/postgresql/data/delete_old_cluster.sh; fi'
                 docker volume rm \"\$TEMP_VOLUME\"
               elif [ -n \"\$CURRENT_VERSION\" ] && [ \"\$CURRENT_MAJOR\" != \"16\" ]; then
                 echo \"Unsupported Postgres data version: \$CURRENT_VERSION\" >&2
