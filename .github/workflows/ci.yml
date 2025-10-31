@@ -173,6 +173,30 @@ jobs:
             PROJECT_NAME=\"\${COMPOSE_PROJECT_NAME:-infra}\"
             POSTGRES_VOLUME=\"\${PROJECT_NAME}_postgres_data\"
             TEMP_VOLUME=\"\${POSTGRES_VOLUME}_v16\"
+            DB_SUPERUSER=\"postgres\"
+            DB_SUPERUSER_PASSWORD=\"\"
+            if [ -f .env ]; then
+              DATABASE_URL_VALUE=$(grep '^DATABASE_URL=' .env | head -n 1 | cut -d= -f2-)
+            else
+              DATABASE_URL_VALUE=\"\"
+            fi
+            if [ -n \"\$DATABASE_URL_VALUE\" ]; then
+              URL_NO_PROTO=\${DATABASE_URL_VALUE#*://}
+              CREDS=\${URL_NO_PROTO%%@*}
+              DB_SUPERUSER=\${CREDS%%:*}
+              if [ \"\$CREDS\" = \"\$DB_SUPERUSER\" ]; then
+                DB_SUPERUSER_PASSWORD=\"\"
+              else
+                DB_SUPERUSER_PASSWORD=\${CREDS#*:}
+              fi
+            fi
+            if [ -n \"\${POSTGRES_SUPERUSER:-}\" ]; then
+              DB_SUPERUSER=\"\$POSTGRES_SUPERUSER\"
+            fi
+            if [ -n \"\${POSTGRES_SUPERUSER_PASSWORD:-}\" ]; then
+              DB_SUPERUSER_PASSWORD=\"\$POSTGRES_SUPERUSER_PASSWORD\"
+            fi
+            DB_SUPERUSER=\${DB_SUPERUSER:-inventory}
             if docker volume inspect \"\$POSTGRES_VOLUME\" >/dev/null 2>&1; then
               CURRENT_VERSION=\$(docker run --rm -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/data alpine:3.19 sh -c 'if [ -f /var/lib/postgresql/data/PG_VERSION ]; then cat /var/lib/postgresql/data/PG_VERSION; fi' | tr -d '\\r' | tr -d '\\n')
               if [ -n \"\$CURRENT_VERSION\" ]; then
@@ -184,10 +208,20 @@ jobs:
                 docker pull tianon/postgres-upgrade:15-to-16 || true
                 docker volume rm \"\$TEMP_VOLUME\" >/dev/null 2>&1 || true
                 docker volume create \"\$TEMP_VOLUME\" >/dev/null
-                docker run --rm \\
-                  -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/15/data \\
-                  -v \"\$TEMP_VOLUME\":/var/lib/postgresql/16/data \\
-                  tianon/postgres-upgrade:15-to-16
+                if [ -n \"\$DB_SUPERUSER_PASSWORD\" ]; then
+                  docker run --rm \\
+                    -e POSTGRES_USER=\"\$DB_SUPERUSER\" \\
+                    -e POSTGRES_PASSWORD=\"\$DB_SUPERUSER_PASSWORD\" \\
+                    -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/15/data \\
+                    -v \"\$TEMP_VOLUME\":/var/lib/postgresql/16/data \\
+                    tianon/postgres-upgrade:15-to-16
+                else
+                  docker run --rm \\
+                    -e POSTGRES_USER=\"\$DB_SUPERUSER\" \\
+                    -v \"\$POSTGRES_VOLUME\":/var/lib/postgresql/15/data \\
+                    -v \"\$TEMP_VOLUME\":/var/lib/postgresql/16/data \\
+                    tianon/postgres-upgrade:15-to-16
+                fi
                 docker run --rm \\
                   -v \"\$TEMP_VOLUME\":/var/lib/postgresql/16/data \\
                   postgres:16 sh -c 'set -eu; chown -R postgres:postgres /var/lib/postgresql/16/data'
